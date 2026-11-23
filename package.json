@@ -1,0 +1,62 @@
+{
+  "name": "diskdelta",
+  "version": "0.1.1",
+  "type": "module",
+  "description": "See what got added to your Windows drives recently and what is safe to remove. Local page for people, read-only MCP server for AI apps.",
+  "license": "MIT",
+  "author": "Northkeel Labs",
+  "homepage": "https://northkeellabs.com/diskdelta",
+  "keywords": [
+    "disk",
+    "disk-usage",
+    "windows",
+    "mcp",
+    "model-context-protocol",
+    "cleanup",
+    "storage"
+  ],
+  "os": [
+    "win32"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "diskdelta": "dist/cli.js"
+  },
+  "files": [
+    "dist/cli.js",
+    "rules/",
+    "README.md",
+    "SECURITY.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "gen": "node scripts/gen-assets.mjs",
+    "build": "npm run gen && node scripts/build.mjs",
+    "build:exe": "npm run build && node scripts/build-exe.mjs",
+    "build:demo": "npm run gen && node scripts/build-demo-site.mjs",
+    "screenshots": "npm run build && node scripts/screenshots.mjs data/screenshots",
+    "test": "npm run gen && vitest run",
+    "typecheck": "npm run gen && tsc --noEmit",
+    "eval": "npm run gen && node scripts/run-ts.mjs scripts/eval-labels.ts",
+    "start": "node dist/cli.js",
+    "demo": "node dist/cli.js --demo"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.4.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
+    "@types/node": "22.20.5",
+    "ajv": "8.20.0",
+    "esbuild": "0.28.2",
+    "gifenc": "1.0.3",
+    "pngjs": "7.0.0",
+    "postject": "1.0.0-alpha.6",
+    "typescript": "7.0.2",
+    "vite": "8.3.8",
+    "vitest": "5.1.0"
+  }
+}

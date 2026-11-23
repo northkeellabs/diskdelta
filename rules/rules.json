@@ -1,0 +1,671 @@
+{
+  "$schema": "./rules.schema.json",
+  "version": 1,
+  "rules": [
+    {
+      "id": "windows-temp",
+      "category": "temp",
+      "match": ["%TEMP%"],
+      "label": "safe",
+      "what": "Your Windows temporary folder. Apps leave files here and are expected to clean up after themselves.",
+      "reclaim": "Settings > System > Storage > Temporary files, or delete the contents. Files still in use cannot be deleted and are skipped.",
+      "notes": "Close apps first. Items changed in the last day may belong to something that is running.",
+      "descend": true,
+      "examples": { "match": ["%TEMP%", "%TEMP%\\WinGet\\cache"], "no_match": ["%USERPROFILE%\\Documents\\Temp", "%WINDIR%\\Temp"] }
+    },
+    {
+      "id": "temp-repeated-folders",
+      "category": "leftovers",
+      "kind": "sibling_group",
+      "min_siblings": 5,
+      "match": ["%TEMP%\\*"],
+      "label": "safe",
+      "what": "One of many temp folders with the same name prefix, typically left behind by repeated test runs, builds or installers.",
+      "reclaim": "Delete the folders in this group that are older than a day. The tool that made them recreates what it needs.",
+      "notes": "Detected by name: at least 5 sibling folders in the temp folder share a prefix.",
+      "examples": {
+        "match": [{ "path": "%TEMP%\\vitest-8f3k2a", "siblings": ["vitest-8f3k2a", "vitest-1a9b0c", "vitest-x7y6z5", "vitest-q2w3e4", "vitest-r5t6y7", "notes.txt"] }],
+        "no_match": [{ "path": "%TEMP%\\report-final", "siblings": ["report-final", "notes.txt", "setup.log"] }]
+      }
+    },
+    {
+      "id": "temp-claude-code",
+      "category": "temp",
+      "match": ["%TEMP%\\claude"],
+      "label": "check_first",
+      "what": "Working files of Claude Code sessions (scratch folders, task output).",
+      "reclaim": "Close Claude Code first, then delete it. Folders of sessions that are still running are in use.",
+      "candidate": true,
+      "examples": { "match": ["%TEMP%\\claude", "%TEMP%\\claude\\session-1\\scratchpad"], "no_match": ["%APPDATA%\\Claude"] }
+    },
+    {
+      "id": "windows-system-temp",
+      "category": "temp",
+      "match": ["%WINDIR%\\Temp"],
+      "label": "safe",
+      "what": "The system-wide temporary folder used by Windows services and installers.",
+      "reclaim": "Disk Cleanup > Clean up system files > Temporary files (needs admin).",
+      "examples": { "match": ["%WINDIR%\\Temp"], "no_match": ["%WINDIR%\\System32"] }
+    },
+    {
+      "id": "crash-dumps",
+      "category": "leftovers",
+      "match": ["%LOCALAPPDATA%\\CrashDumps"],
+      "label": "safe",
+      "what": "Memory dumps written when apps crashed. Only useful for reporting a crash to a developer.",
+      "reclaim": "Delete the contents.",
+      "examples": { "match": ["%LOCALAPPDATA%\\CrashDumps"], "no_match": ["%LOCALAPPDATA%\\Crashpad"] }
+    },
+    {
+      "id": "windows-error-reports",
+      "category": "leftovers",
+      "match": ["%PROGRAMDATA%\\Microsoft\\Windows\\WER", "%LOCALAPPDATA%\\Microsoft\\Windows\\WER"],
+      "label": "safe",
+      "what": "Windows Error Reporting: crash and problem reports already sent or queued.",
+      "reclaim": "Disk Cleanup > Clean up system files > Windows error reports.",
+      "examples": { "match": ["%PROGRAMDATA%\\Microsoft\\Windows\\WER\\ReportArchive"], "no_match": ["%PROGRAMDATA%\\Microsoft\\Windows Defender"] }
+    },
+    {
+      "id": "windows-update-download",
+      "category": "leftovers",
+      "match": ["%WINDIR%\\SoftwareDistribution\\Download"],
+      "label": "safe",
+      "what": "Windows Update download cache. Updates already installed do not need it.",
+      "reclaim": "Disk Cleanup > Clean up system files > Windows Update Cleanup, or Storage Sense.",
+      "examples": { "match": ["%WINDIR%\\SoftwareDistribution\\Download"], "no_match": ["%WINDIR%\\SoftwareDistribution\\DataStore"] }
+    },
+    {
+      "id": "delivery-optimization",
+      "category": "leftovers",
+      "match": ["%WINDIR%\\ServiceProfiles\\NetworkService\\AppData\\Local\\Microsoft\\Windows\\DeliveryOptimization"],
+      "label": "safe",
+      "what": "Delivery Optimization cache: update pieces kept to share with other PCs.",
+      "reclaim": "Disk Cleanup > Clean up system files > Delivery Optimization Files.",
+      "examples": { "match": ["%WINDIR%\\ServiceProfiles\\NetworkService\\AppData\\Local\\Microsoft\\Windows\\DeliveryOptimization\\Cache"], "no_match": ["%WINDIR%\\ServiceProfiles\\NetworkService"] }
+    },
+    {
+      "id": "windows-upgrade-files",
+      "category": "leftovers",
+      "match": ["?:\\$WINDOWS.~BT", "?:\\$Windows.~WS"],
+      "label": "check_first",
+      "what": "Temporary files from a Windows upgrade or feature update.",
+      "reclaim": "Disk Cleanup > Clean up system files > Temporary Windows installation files. Do not delete while an upgrade is in progress.",
+      "examples": { "match": ["C:\\$WINDOWS.~BT"], "no_match": ["C:\\Windows"] }
+    },
+    {
+      "id": "windows-old",
+      "category": "leftovers",
+      "match": ["?:\\Windows.old"],
+      "label": "check_first",
+      "what": "Your previous Windows installation, kept so you can go back after an upgrade.",
+      "reclaim": "Settings > System > Storage > Temporary files > Previous Windows installation(s). Removing it means you can no longer roll back.",
+      "examples": { "match": ["C:\\Windows.old", "C:\\Windows.old\\Users"], "no_match": ["C:\\Windows"] }
+    },
+    {
+      "id": "recycle-bin",
+      "category": "leftovers",
+      "match": ["?:\\$Recycle.Bin"],
+      "label": "safe",
+      "what": "The Recycle Bin: files you already deleted.",
+      "reclaim": "Empty the Recycle Bin (right-click it on the desktop). Check it first if you might want something back.",
+      "examples": { "match": ["C:\\$Recycle.Bin", "D:\\$Recycle.Bin\\S-1-5-21-1"], "no_match": ["C:\\Recycle"] }
+    },
+    {
+      "id": "windows-component-store",
+      "command": "Dism.exe /Online /Cleanup-Image /StartComponentCleanup",
+      "category": "system",
+      "match": ["%WINDIR%\\WinSxS"],
+      "label": "do_not_touch",
+      "what": "The Windows component store. Much of its apparent size is hard links shared with System32.",
+      "reclaim": "From an admin prompt: Dism.exe /Online /Cleanup-Image /StartComponentCleanup. Never delete files here by hand.",
+      "candidate": false,
+      "examples": { "match": ["%WINDIR%\\WinSxS", "%WINDIR%\\WinSxS\\amd64_x"], "no_match": ["%WINDIR%\\Temp"] }
+    },
+    {
+      "id": "windows-installer-cache",
+      "category": "system",
+      "match": ["%WINDIR%\\Installer"],
+      "label": "do_not_touch",
+      "what": "Windows Installer cache. Installed programs need these files to update, repair or uninstall.",
+      "reclaim": "Uninstall programs you no longer use (Settings > Apps > Installed apps); their files here go with them.",
+      "candidate": false,
+      "examples": { "match": ["%WINDIR%\\Installer\\$PatchCache$"], "no_match": ["%WINDIR%\\Temp"] }
+    },
+    {
+      "id": "windows-folder",
+      "category": "system",
+      "match": ["%WINDIR%"],
+      "label": "do_not_touch",
+      "what": "Windows itself.",
+      "reclaim": "Use Disk Cleanup (Clean up system files) or Storage Sense. Never delete files here by hand.",
+      "candidate": false,
+      "descend": true,
+      "examples": { "match": ["%WINDIR%", "%WINDIR%\\System32\\drivers"], "no_match": ["C:\\Windows.old"] }
+    },
+    {
+      "id": "page-and-swap-files",
+      "category": "system",
+      "match": ["?:\\pagefile.sys", "?:\\swapfile.sys"],
+      "label": "do_not_touch",
+      "what": "Windows system file (page file, swap file, hibernation file).",
+      "reclaim": "Windows manages it. Change its size only in System settings (System > About > Advanced system settings > Performance > Settings > Advanced > Virtual memory); never delete it.",
+      "notes": "pagefile.sys is the page file; swapfile.sys is the swap file used by Store apps. Both are in use while Windows runs.",
+      "candidate": false,
+      "examples": { "match": ["C:\\pagefile.sys", "C:\\swapfile.sys", "D:\\pagefile.sys"], "no_match": ["C:\\hiberfil.sys", "C:\\Temp\\pagefile.sys"] }
+    },
+    {
+      "id": "hibernation-file",
+      "command": "powercfg /h off",
+      "category": "system",
+      "match": ["?:\\hiberfil.sys"],
+      "label": "do_not_touch",
+      "what": "Windows system file (page file, swap file, hibernation file).",
+      "reclaim": "Turn hibernation off with powercfg /h off in an admin terminal; Windows then removes the file. Never delete it by hand.",
+      "notes": "hiberfil.sys holds memory contents for hibernate and Fast Startup; turning hibernation off also turns off Fast Startup.",
+      "candidate": false,
+      "examples": { "match": ["C:\\hiberfil.sys"], "no_match": ["C:\\pagefile.sys", "C:\\Backup\\hiberfil.sys"] }
+    },
+    {
+      "id": "system-volume-information",
+      "category": "system",
+      "match": ["?:\\System Volume Information"],
+      "label": "do_not_touch",
+      "what": "System Restore points and other volume data kept by Windows.",
+      "reclaim": "System Properties > System Protection > Configure: lower the space limit or delete restore points there.",
+      "candidate": false,
+      "examples": { "match": ["C:\\System Volume Information"], "no_match": ["C:\\System"] }
+    },
+    {
+      "id": "programdata-microsoft",
+      "category": "system",
+      "match": ["%PROGRAMDATA%\\Microsoft"],
+      "label": "do_not_touch",
+      "what": "Data used by Windows components and Microsoft services (Defender, update, search and others).",
+      "reclaim": "Use Disk Cleanup or the owning feature's settings. Do not delete by hand.",
+      "candidate": false,
+      "descend": true,
+      "examples": { "match": ["%PROGRAMDATA%\\Microsoft\\Windows Defender"], "no_match": ["%PROGRAMDATA%\\Package Cache"] }
+    },
+    {
+      "id": "installer-package-cache",
+      "category": "installed-apps",
+      "match": ["%PROGRAMDATA%\\Package Cache", "%LOCALAPPDATA%\\Package Cache"],
+      "label": "do_not_touch",
+      "what": "Installer package cache. Programs installed with these packages need them to repair or uninstall.",
+      "reclaim": "Uninstall programs you no longer use; their cached installers are removed with them.",
+      "candidate": false,
+      "examples": { "match": ["%PROGRAMDATA%\\Package Cache\\{1234}"], "no_match": ["%PROGRAMDATA%\\Packages"] }
+    },
+    {
+      "id": "program-files",
+      "category": "installed-apps",
+      "match": ["%PROGRAMFILES%", "%PROGRAMFILES(X86)%"],
+      "label": "do_not_touch",
+      "what": "Installed programs.",
+      "reclaim": "Uninstall programs you no longer use: Settings > Apps > Installed apps. Deleting program folders by hand leaves broken entries behind.",
+      "candidate": false,
+      "descend": true,
+      "examples": { "match": ["%PROGRAMFILES%\\Vendor App", "%PROGRAMFILES(X86)%\\Common Files"], "no_match": ["C:\\Programs"] }
+    },
+    {
+      "id": "user-programs",
+      "category": "installed-apps",
+      "match": ["%LOCALAPPDATA%\\Programs"],
+      "label": "do_not_touch",
+      "what": "Programs installed for your user only (no admin install).",
+      "reclaim": "Uninstall programs you no longer use: Settings > Apps > Installed apps.",
+      "candidate": false,
+      "descend": true,
+      "examples": { "match": ["%LOCALAPPDATA%\\Programs\\Microsoft VS Code"], "no_match": ["%LOCALAPPDATA%\\Packages"] }
+    },
+    {
+      "id": "edge-cache",
+      "category": "browser-cache",
+      "match": ["%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\*\\Cache", "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\*\\Code Cache", "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\*\\Service Worker\\CacheStorage"],
+      "label": "safe",
+      "what": "Microsoft Edge cache: copies of web pages and scripts, downloaded again when needed.",
+      "reclaim": "Edge: Settings > Privacy, search and services > Clear browsing data > Cached images and files. Or close Edge and delete the contents.",
+      "examples": { "match": ["%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\Default\\Cache"], "no_match": ["%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\Default"] }
+    },
+    {
+      "id": "chrome-cache",
+      "category": "browser-cache",
+      "match": ["%LOCALAPPDATA%\\Google\\Chrome\\User Data\\*\\Cache", "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\*\\Code Cache", "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\*\\Service Worker\\CacheStorage"],
+      "label": "safe",
+      "what": "Google Chrome cache: copies of web pages and scripts, downloaded again when needed.",
+      "reclaim": "Chrome: Settings > Privacy and security > Delete browsing data > Cached images and files.",
+      "examples": { "match": ["%LOCALAPPDATA%\\Google\\Chrome\\User Data\\Profile 1\\Code Cache"], "no_match": ["%LOCALAPPDATA%\\Google\\Chrome\\User Data"] }
+    },
+    {
+      "id": "brave-cache",
+      "category": "browser-cache",
+      "match": ["%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data\\*\\Cache", "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data\\*\\Code Cache"],
+      "label": "safe",
+      "what": "Brave cache: copies of web pages and scripts, downloaded again when needed.",
+      "reclaim": "Brave: Settings > Privacy and security > Delete browsing data > Cached images and files.",
+      "examples": { "match": ["%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data\\Default\\Cache"], "no_match": ["%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data\\Default"] }
+    },
+    {
+      "id": "firefox-cache",
+      "category": "browser-cache",
+      "match": ["%LOCALAPPDATA%\\Mozilla\\Firefox\\Profiles\\*\\cache2"],
+      "label": "safe",
+      "what": "Firefox cache: copies of web pages and scripts, downloaded again when needed.",
+      "reclaim": "Firefox: Settings > Privacy & Security > Cookies and Site Data > Clear Data > Cached Web Content.",
+      "examples": { "match": ["%LOCALAPPDATA%\\Mozilla\\Firefox\\Profiles\\ab12cd.default-release\\cache2"], "no_match": ["%APPDATA%\\Mozilla\\Firefox\\Profiles\\ab12cd.default-release"] }
+    },
+    {
+      "id": "browser-profiles",
+      "category": "app-data",
+      "match": ["%LOCALAPPDATA%\\Microsoft\\Edge\\User Data", "%LOCALAPPDATA%\\Google\\Chrome\\User Data", "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data", "%APPDATA%\\Mozilla\\Firefox\\Profiles"],
+      "label": "check_first",
+      "what": "Browser profile: history, saved passwords, cookies, extensions and settings.",
+      "reclaim": "Clear what you do not need from the browser's own settings. Deleting the folder signs you out everywhere and loses local data.",
+      "candidate": false,
+      "descend": true,
+      "examples": { "match": ["%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\Default"], "no_match": ["%LOCALAPPDATA%\\Microsoft\\Edge\\Application"] }
+    },
+    {
+      "id": "electron-app-cache",
+      "category": "app-cache",
+      "match": ["%APPDATA%\\*\\Cache", "%APPDATA%\\*\\Code Cache", "%APPDATA%\\*\\GPUCache"],
+      "label": "safe",
+      "what": "Cache of a desktop app built on Chromium (Electron): copies of web content, rebuilt when needed.",
+      "reclaim": "Close the app, then delete the contents.",
+      "examples": { "match": ["%APPDATA%\\Slack\\Cache", "%APPDATA%\\Claude\\Code Cache"], "no_match": ["%APPDATA%\\Slack\\storage"] }
+    },
+    {
+      "id": "inet-cache",
+      "category": "app-cache",
+      "match": ["%LOCALAPPDATA%\\Microsoft\\Windows\\INetCache"],
+      "label": "safe",
+      "what": "Temporary Internet files used by Windows and older apps.",
+      "reclaim": "Disk Cleanup > Temporary Internet Files.",
+      "examples": { "match": ["%LOCALAPPDATA%\\Microsoft\\Windows\\INetCache\\IE"], "no_match": ["%LOCALAPPDATA%\\Microsoft\\Windows\\History"] }
+    },
+    {
+      "id": "thumbnail-cache",
+      "category": "app-cache",
+      "match": ["%LOCALAPPDATA%\\Microsoft\\Windows\\Explorer"],
+      "label": "safe",
+      "what": "File Explorer thumbnail and icon cache, rebuilt when needed.",
+      "reclaim": "Disk Cleanup > Thumbnails.",
+      "examples": { "match": ["%LOCALAPPDATA%\\Microsoft\\Windows\\Explorer"], "no_match": ["%LOCALAPPDATA%\\Microsoft\\Windows\\INetCache"] }
+    },
+    {
+      "id": "shader-caches",
+      "category": "app-cache",
+      "match": ["%LOCALAPPDATA%\\D3DSCache", "%LOCALAPPDATA%\\NVIDIA\\DXCache", "%LOCALAPPDATA%\\NVIDIA\\GLCache", "%LOCALAPPDATA%\\AMD\\DxCache", "%LOCALAPPDATA%\\AMD\\DxcCache"],
+      "label": "safe",
+      "what": "Graphics shader cache. Games and apps rebuild it; the first start after clearing can be slower.",
+      "reclaim": "Disk Cleanup > DirectX Shader Cache, or close games and delete the contents.",
+      "examples": { "match": ["%LOCALAPPDATA%\\D3DSCache", "%LOCALAPPDATA%\\NVIDIA\\DXCache"], "no_match": ["%LOCALAPPDATA%\\NVIDIA\\NvBackend"] }
+    },
+    {
+      "id": "nvidia-installer-downloads",
+      "category": "leftovers",
+      "match": ["%PROGRAMDATA%\\NVIDIA Corporation\\Downloader"],
+      "label": "safe",
+      "what": "Downloaded NVIDIA driver installers.",
+      "reclaim": "Delete the contents once the driver is installed.",
+      "examples": { "match": ["%PROGRAMDATA%\\NVIDIA Corporation\\Downloader\\latest"], "no_match": ["%PROGRAMDATA%\\NVIDIA Corporation\\Drs"] }
+    },
+    {
+      "id": "vscode-caches",
+      "category": "app-cache",
+      "match": ["%APPDATA%\\Code\\Cache", "%APPDATA%\\Code\\CachedData", "%APPDATA%\\Code\\CachedExtensionVSIXs"],
+      "label": "safe",
+      "what": "VS Code caches, including data for old versions and downloaded extension packages.",
+      "reclaim": "Close VS Code, then delete the contents.",
+      "examples": { "match": ["%APPDATA%\\Code\\CachedData"], "no_match": ["%APPDATA%\\Code\\User"] }
+    },
+    {
+      "id": "vscode-extensions",
+      "category": "app-data",
+      "match": ["%USERPROFILE%\\.vscode\\extensions"],
+      "label": "check_first",
+      "what": "Installed VS Code extensions.",
+      "reclaim": "Uninstall extensions you do not use from the Extensions view in VS Code.",
+      "examples": { "match": ["%USERPROFILE%\\.vscode\\extensions"], "no_match": ["%USERPROFILE%\\.vscode-server"] }
+    },
+    {
+      "id": "jetbrains-caches",
+      "category": "app-cache",
+      "match": ["%LOCALAPPDATA%\\JetBrains\\*\\caches"],
+      "label": "safe",
+      "what": "JetBrains IDE caches and indexes, rebuilt when needed.",
+      "reclaim": "In the IDE: File > Invalidate Caches. Folders of IDE versions you no longer use can go entirely.",
+      "examples": { "match": ["%LOCALAPPDATA%\\JetBrains\\IntelliJIdea2025.2\\caches"], "no_match": ["%APPDATA%\\JetBrains\\IntelliJIdea2025.2"] }
+    },
+    {
+      "id": "npm-cache",
+      "command": "npm cache clean --force",
+      "category": "package-cache",
+      "match": ["%LOCALAPPDATA%\\npm-cache"],
+      "label": "safe",
+      "what": "npm download cache. Packages are downloaded again when needed.",
+      "reclaim": "npm cache clean --force",
+      "examples": { "match": ["%LOCALAPPDATA%\\npm-cache\\_cacache"], "no_match": ["%APPDATA%\\npm"] }
+    },
+    {
+      "id": "yarn-cache",
+      "command": "yarn cache clean",
+      "category": "package-cache",
+      "match": ["%LOCALAPPDATA%\\Yarn\\Cache"],
+      "label": "safe",
+      "what": "Yarn download cache.",
+      "reclaim": "yarn cache clean",
+      "examples": { "match": ["%LOCALAPPDATA%\\Yarn\\Cache\\v6"], "no_match": ["%LOCALAPPDATA%\\Yarn\\Data"] }
+    },
+    {
+      "id": "pnpm-store",
+      "command": "pnpm store prune",
+      "category": "package-cache",
+      "match": ["%LOCALAPPDATA%\\pnpm\\store", "?:\\.pnpm-store"],
+      "label": "safe",
+      "what": "pnpm content store shared by your projects.",
+      "reclaim": "pnpm store prune (removes only packages no project uses).",
+      "examples": { "match": ["%LOCALAPPDATA%\\pnpm\\store\\v3"], "no_match": ["%LOCALAPPDATA%\\pnpm"] }
+    },
+    {
+      "id": "pip-cache",
+      "command": "pip cache purge",
+      "category": "package-cache",
+      "match": ["%LOCALAPPDATA%\\pip\\cache"],
+      "label": "safe",
+      "what": "pip download and wheel cache.",
+      "reclaim": "pip cache purge",
+      "examples": { "match": ["%LOCALAPPDATA%\\pip\\cache\\http-v2"], "no_match": ["%APPDATA%\\pip"] }
+    },
+    {
+      "id": "uv-cache",
+      "command": "uv cache clean",
+      "category": "package-cache",
+      "match": ["%LOCALAPPDATA%\\uv\\cache"],
+      "label": "safe",
+      "what": "uv package cache.",
+      "reclaim": "uv cache clean (or uv cache prune to keep what is in use).",
+      "examples": { "match": ["%LOCALAPPDATA%\\uv\\cache"], "no_match": ["%LOCALAPPDATA%\\uv\\python"] }
+    },
+    {
+      "id": "nuget-packages",
+      "command": "dotnet nuget locals all --clear",
+      "category": "package-cache",
+      "match": ["%USERPROFILE%\\.nuget\\packages", "%LOCALAPPDATA%\\NuGet\\v3-cache"],
+      "label": "safe",
+      "what": "NuGet package cache for .NET projects.",
+      "reclaim": "dotnet nuget locals all --clear",
+      "examples": { "match": ["%USERPROFILE%\\.nuget\\packages"], "no_match": ["%USERPROFILE%\\.nuget"] }
+    },
+    {
+      "id": "gradle-caches",
+      "category": "package-cache",
+      "match": ["%USERPROFILE%\\.gradle\\caches", "%USERPROFILE%\\.gradle\\wrapper\\dists"],
+      "label": "safe",
+      "what": "Gradle dependency and build caches.",
+      "reclaim": "Stop Gradle daemons (gradle --stop), then delete. Files are downloaded again by the next build.",
+      "examples": { "match": ["%USERPROFILE%\\.gradle\\caches"], "no_match": ["%USERPROFILE%\\.gradle\\gradle.properties"] }
+    },
+    {
+      "id": "maven-repository",
+      "category": "package-cache",
+      "match": ["%USERPROFILE%\\.m2\\repository"],
+      "label": "safe",
+      "what": "Maven local repository (downloaded dependencies).",
+      "reclaim": "Delete it; the next build downloads what it needs.",
+      "examples": { "match": ["%USERPROFILE%\\.m2\\repository"], "no_match": ["%USERPROFILE%\\.m2\\settings.xml"] }
+    },
+    {
+      "id": "cargo-registry",
+      "category": "package-cache",
+      "match": ["%USERPROFILE%\\.cargo\\registry", "%USERPROFILE%\\.cargo\\git"],
+      "label": "safe",
+      "what": "Cargo (Rust) download cache of crates.",
+      "reclaim": "Delete it; cargo downloads crates again when a build needs them.",
+      "examples": { "match": ["%USERPROFILE%\\.cargo\\registry"], "no_match": ["%USERPROFILE%\\.cargo\\bin"] }
+    },
+    {
+      "id": "go-build-cache",
+      "command": "go clean -cache",
+      "category": "package-cache",
+      "match": ["%LOCALAPPDATA%\\go-build"],
+      "label": "safe",
+      "what": "Go build cache.",
+      "reclaim": "go clean -cache",
+      "examples": { "match": ["%LOCALAPPDATA%\\go-build"], "no_match": ["%USERPROFILE%\\go"] }
+    },
+    {
+      "id": "conda-pkgs",
+      "command": "conda clean --all",
+      "category": "package-cache",
+      "match": ["%USERPROFILE%\\miniconda3\\pkgs", "%USERPROFILE%\\anaconda3\\pkgs", "%USERPROFILE%\\miniforge3\\pkgs"],
+      "label": "safe",
+      "what": "Conda package cache (downloaded packages and tarballs).",
+      "reclaim": "conda clean --all",
+      "examples": { "match": ["%USERPROFILE%\\miniconda3\\pkgs"], "no_match": ["%USERPROFILE%\\miniconda3\\envs"] }
+    },
+    {
+      "id": "node-modules",
+      "category": "dev-build",
+      "match": ["**\\node_modules"],
+      "label": "safe",
+      "what": "Installed JavaScript packages of a project. The project's package manager recreates them.",
+      "reclaim": "Delete it, then run npm install (or pnpm install / yarn) in the project when you work on it again.",
+      "notes": "Projects without a lock file may get newer package versions on reinstall.",
+      "examples": { "match": ["C:\\dev\\shop-api\\node_modules", "D:\\work\\site\\node_modules\\.pnpm"], "no_match": ["C:\\dev\\shop-api\\src"] }
+    },
+    {
+      "id": "python-bytecode",
+      "category": "dev-build",
+      "match": ["**\\__pycache__"],
+      "label": "safe",
+      "what": "Compiled Python bytecode, recreated automatically.",
+      "reclaim": "Delete it.",
+      "examples": { "match": ["C:\\dev\\tool\\src\\__pycache__"], "no_match": ["C:\\dev\\tool\\src"] }
+    },
+    {
+      "id": "python-venv",
+      "category": "dev-build",
+      "match": ["**\\.venv", "**\\venv"],
+      "label": "check_first",
+      "what": "Python virtual environment of a project.",
+      "reclaim": "Delete it and recreate it from the project's requirements or lock file (for example uv sync or pip install -r requirements.txt).",
+      "notes": "Packages installed by hand and not listed in a requirements file are lost.",
+      "examples": { "match": ["C:\\dev\\ml\\.venv"], "no_match": ["C:\\dev\\ml\\venv-notes.txt"] }
+    },
+    {
+      "id": "ollama-models",
+      "command": "ollama rm <name>",
+      "category": "model-store",
+      "match": ["%USERPROFILE%\\.ollama\\models", "**\\ollama\\models"],
+      "label": "check_first",
+      "what": "Ollama model store (model weights in blobs, names in manifests).",
+      "reclaim": "List models with ollama list, remove one with ollama rm <name>. Do not delete files by hand: blobs are shared between models.",
+      "examples": { "match": ["%USERPROFILE%\\.ollama\\models\\blobs\\sha256-0f3a9c", "D:\\AI\\ollama\\models\\blobs"], "no_match": ["%USERPROFILE%\\.ollama", "D:\\AI\\ollama"] }
+    },
+    {
+      "id": "ollama-home",
+      "category": "model-store",
+      "match": ["%USERPROFILE%\\.ollama", "%LOCALAPPDATA%\\Ollama"],
+      "label": "check_first",
+      "what": "Ollama data: keys, history, logs and downloaded updates.",
+      "reclaim": "Models: ollama rm <name>. Logs and old update installers can be deleted with Ollama closed.",
+      "candidate": false,
+      "descend": true,
+      "examples": { "match": ["%USERPROFILE%\\.ollama\\id_ed25519.pub", "%LOCALAPPDATA%\\Ollama\\app.log"], "no_match": ["%LOCALAPPDATA%\\Programs\\Ollama"] }
+    },
+    {
+      "id": "lmstudio-models",
+      "category": "model-store",
+      "match": ["%USERPROFILE%\\.lmstudio\\models", "%USERPROFILE%\\.cache\\lm-studio\\models"],
+      "label": "check_first",
+      "what": "LM Studio downloaded models.",
+      "reclaim": "Delete models you no longer use from LM Studio's My Models page.",
+      "examples": { "match": ["%USERPROFILE%\\.lmstudio\\models\\some-org\\some-model-GGUF"], "no_match": ["%USERPROFILE%\\.lmstudio\\conversations"] }
+    },
+    {
+      "id": "huggingface-cache",
+      "command": "huggingface-cli delete-cache",
+      "category": "model-store",
+      "match": ["%USERPROFILE%\\.cache\\huggingface", "**\\huggingface\\hub", "**\\models--*--*"],
+      "label": "check_first",
+      "what": "Hugging Face download cache: models and datasets used by Python libraries.",
+      "reclaim": "huggingface-cli delete-cache (lets you pick which models to remove). Anything removed is downloaded again on next use.",
+      "examples": { "match": ["%USERPROFILE%\\.cache\\huggingface\\hub", "D:\\caches\\models--some-org--some-model\\blobs"], "no_match": ["%USERPROFILE%\\.cache\\pip", "D:\\caches\\models"] }
+    },
+    {
+      "id": "torch-cache",
+      "category": "model-store",
+      "match": ["%USERPROFILE%\\.cache\\torch"],
+      "label": "check_first",
+      "what": "PyTorch hub cache: downloaded model weights.",
+      "reclaim": "Delete model folders you no longer use; they are downloaded again on next use.",
+      "examples": { "match": ["%USERPROFILE%\\.cache\\torch\\hub"], "no_match": ["%USERPROFILE%\\.cache\\huggingface"] }
+    },
+    {
+      "id": "user-cache-folder",
+      "category": "app-cache",
+      "match": ["%USERPROFILE%\\.cache"],
+      "label": "check_first",
+      "what": "Shared cache folder used by many developer tools. Most of it is rebuilt; some tools keep downloaded models here.",
+      "reclaim": "Look at the subfolders and clear each with its own tool.",
+      "candidate": false,
+      "descend": true,
+      "examples": { "match": ["%USERPROFILE%\\.cache\\pre-commit"], "no_match": ["%USERPROFILE%\\.config"] }
+    },
+    {
+      "id": "docker-desktop-disk",
+      "command": "docker system prune",
+      "category": "vm-disk",
+      "match": ["%LOCALAPPDATA%\\Docker\\wsl"],
+      "label": "check_first",
+      "what": "Docker Desktop virtual disk: all images, containers, volumes and build cache.",
+      "reclaim": "docker system prune (add -a to also remove unused images; volumes are kept unless you add --volumes). The disk file may not shrink on its own afterwards. Never delete the file by hand.",
+      "examples": { "match": ["%LOCALAPPDATA%\\Docker\\wsl\\disk\\docker_data.vhdx", "%LOCALAPPDATA%\\Docker\\wsl\\data\\ext4.vhdx"], "no_match": ["%LOCALAPPDATA%\\Docker\\log"] }
+    },
+    {
+      "id": "docker-desktop-data",
+      "category": "app-data",
+      "match": ["%LOCALAPPDATA%\\Docker", "%APPDATA%\\Docker", "%APPDATA%\\Docker Desktop"],
+      "label": "check_first",
+      "what": "Docker Desktop data: settings, logs and its virtual disk.",
+      "reclaim": "Clean up through Docker (docker system prune) or Docker Desktop's settings, not by deleting files.",
+      "candidate": false,
+      "descend": true,
+      "examples": { "match": ["%LOCALAPPDATA%\\Docker\\log"], "no_match": ["%LOCALAPPDATA%\\Docker\\wsl\\disk\\docker_data.vhdx"] }
+    },
+    {
+      "id": "python-tool-data",
+      "category": "app-data",
+      "match": ["%LOCALAPPDATA%\\uv", "%LOCALAPPDATA%\\pip"],
+      "label": "check_first",
+      "what": "Data of a Python packaging tool (uv or pip): its cache and, for uv, Python versions and tools it installed.",
+      "reclaim": "Clear the cache with the tool's own command (uv cache clean, pip cache purge); uninstall uv-managed Pythons with uv python uninstall.",
+      "candidate": false,
+      "descend": true,
+      "examples": { "match": ["%LOCALAPPDATA%\\uv\\python", "%LOCALAPPDATA%\\pip"], "no_match": ["%LOCALAPPDATA%\\uv\\cache"] }
+    },
+    {
+      "id": "wsl-distro-disk",
+      "category": "vm-disk",
+      "match": ["%LOCALAPPDATA%\\Packages\\CanonicalGroupLimited.*\\LocalState", "%LOCALAPPDATA%\\Packages\\TheDebianProject.*\\LocalState", "%LOCALAPPDATA%\\wsl"],
+      "label": "check_first",
+      "what": "WSL Linux distribution disk (everything inside that Linux install).",
+      "reclaim": "Free space inside Linux first. To remove a distro you no longer need: wsl --list --verbose, then wsl --unregister <name> (deletes everything in it).",
+      "examples": { "match": ["%LOCALAPPDATA%\\Packages\\CanonicalGroupLimited.Ubuntu22.04LTS_79rhkp1fndgsc\\LocalState\\ext4.vhdx"], "no_match": ["%LOCALAPPDATA%\\Packages\\Contoso.NotesApp_8wekyb3d8bbwe"] }
+    },
+    {
+      "id": "claude-vm-bundles",
+      "category": "vm-disk",
+      "match": ["**\\Claude\\vm_bundles", "%LOCALAPPDATA%\\Claude-Data\\*\\vm_bundles", "%APPDATA%\\Claude-Data\\*\\vm_bundles"],
+      "label": "do_not_touch",
+      "what": "Virtual machine disk used by the Claude desktop app.",
+      "reclaim": "Leave it to the app. If you no longer use the app, uninstall it first, then check whether this folder is still there.",
+      "candidate": false,
+      "examples": { "match": ["%APPDATA%\\Claude\\vm_bundles\\claudevm.bundle\\rootfs.vhdx", "%LOCALAPPDATA%\\Claude-Data\\claude_ab12cd34\\vm_bundles\\claudevm.bundle\\sessiondata.vhdx", "C:\\Users\\other\\AppData\\Roaming\\Claude\\vm_bundles"], "no_match": ["%APPDATA%\\Claude\\logs", "%LOCALAPPDATA%\\Claude-Data\\claude_ab12cd34\\logs"] }
+    },
+    {
+      "id": "claude-desktop-data",
+      "category": "app-data",
+      "match": ["%APPDATA%\\Claude", "%LOCALAPPDATA%\\Claude-Data"],
+      "label": "check_first",
+      "what": "Claude desktop app data: settings, logs, extensions and caches.",
+      "reclaim": "Caches inside can go with the app closed; settings and extensions are needed by the app.",
+      "candidate": false,
+      "descend": true,
+      "examples": { "match": ["%APPDATA%\\Claude\\logs"], "no_match": ["%TEMP%\\claude"] }
+    },
+    {
+      "id": "steam-library",
+      "category": "installed-apps",
+      "match": ["**\\steamapps\\common"],
+      "label": "check_first",
+      "what": "Installed Steam games.",
+      "reclaim": "Uninstall games you do not play from the Steam library. Steam can download them again.",
+      "candidate": true,
+      "descend": true,
+      "examples": { "match": ["D:\\SteamLibrary\\steamapps\\common\\Some Game"], "no_match": ["D:\\SteamLibrary\\steamapps\\workshop"] }
+    },
+    {
+      "id": "personal-documents",
+      "category": "personal",
+      "match": ["%USERPROFILE%\\Documents", "%USERPROFILE%\\Desktop", "%USERPROFILE%\\Pictures", "%USERPROFILE%\\Videos", "%USERPROFILE%\\Music", "%USERPROFILE%\\OneDrive", "%USERPROFILE%\\OneDrive - *"],
+      "label": "check_first",
+      "what": "Your personal files.",
+      "reclaim": "Only you can decide. Move large files you want to keep to another drive, delete what you do not need.",
+      "notes": "DiskDelta never labels anything inside a personal folder as safe to remove.",
+      "cap_inside": "check_first",
+      "candidate": false,
+      "descend": true,
+      "examples": { "match": ["%USERPROFILE%\\Videos\\Captures\\clip.mp4", "%USERPROFILE%\\OneDrive\\Documents"], "no_match": ["%USERPROFILE%\\AppData"] }
+    },
+    {
+      "id": "personal-downloads",
+      "category": "personal",
+      "match": ["%USERPROFILE%\\Downloads"],
+      "label": "check_first",
+      "what": "Your downloads. Often holds old installers and archives you no longer need.",
+      "reclaim": "Sort by size or date and delete what you do not need. Installers can usually be downloaded again.",
+      "cap_inside": "check_first",
+      "candidate": true,
+      "descend": true,
+      "examples": { "match": ["%USERPROFILE%\\Downloads\\setup-tool-2.1.exe"], "no_match": ["%USERPROFILE%\\Documents"] }
+    },
+    {
+      "id": "container-user-profile",
+      "category": "container",
+      "match": ["%USERPROFILE%", "?:\\Users"],
+      "label": "check_first",
+      "what": "User profile folder. Holds personal folders and app data.",
+      "reclaim": "Look at the folders inside.",
+      "inherit": false,
+      "candidate": false,
+      "descend": true,
+      "examples": { "match": ["%USERPROFILE%", "C:\\Users"], "no_match": ["%USERPROFILE%\\.zephyrtool"] }
+    },
+    {
+      "id": "container-app-data",
+      "category": "container",
+      "match": ["%USERPROFILE%\\AppData", "%LOCALAPPDATA%", "%APPDATA%", "%USERPROFILE%\\AppData\\LocalLow", "%PROGRAMDATA%", "%LOCALAPPDATA%\\Packages", "%LOCALAPPDATA%\\Microsoft", "%APPDATA%\\Microsoft"],
+      "label": "check_first",
+      "what": "App data folder. Each app keeps its own folder inside.",
+      "reclaim": "Look at the folders inside; each belongs to an app.",
+      "inherit": false,
+      "candidate": false,
+      "descend": true,
+      "examples": { "match": ["%LOCALAPPDATA%", "%LOCALAPPDATA%\\Packages"], "no_match": ["%LOCALAPPDATA%\\Fooware"] }
+    },
+    {
+      "id": "container-drive-root",
+      "category": "container",
+      "match": ["?:"],
+      "label": "check_first",
+      "what": "Top of the drive.",
+      "reclaim": "Look at the folders inside.",
+      "inherit": false,
+      "candidate": false,
+      "descend": true,
+      "examples": { "match": ["C:\\", "D:\\"], "no_match": ["D:\\Renders"] }
+    }
+  ]
+}
