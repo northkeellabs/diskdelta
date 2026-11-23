@@ -280,12 +280,14 @@ footer.foot { max-width: 1320px; margin: 0 auto; padding: 0 24px 32px; color: va
   --card-radius: 10px;
   --card-shadow: 0 0 0 1px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04), 0 2px 10px rgba(0,0,0,0.05);
   --c-safe: #3a9a64; --c-check: #d39a2c; --c-dnt: #cc5a66; --c-unknown: #a9a9a9; --c-personal: #8770c8; --c-other: #dcdcdc; --c-container: #c9d2dc;
+  --tint-white: 52%; --tint-base: #ffffff;
   --c-bar: var(--accent); --c-bar-sel: #063f78;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --card-shadow: 0 0 0 1px rgba(255,255,255,0.07), 0 1px 2px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.35);
     --c-safe: #4cb47b; --c-check: #ddac48; --c-dnt: #df707b; --c-unknown: #7b7b7b; --c-personal: #a28fe0; --c-other: #3b3b3b; --c-container: #4a5560;
+    --tint-white: 45%; --tint-base: var(--surface);
     --c-bar-sel: #b4d3fa;
   }
 }
@@ -372,6 +374,19 @@ path.sw-unknown { fill: var(--c-unknown); }
 path.sw-personal { fill: var(--c-personal); }
 path.sw-other { fill: var(--c-other); }
 path.sw-container { fill: var(--c-container); }
+path.sw-t_safe { fill: color-mix(in srgb, var(--c-safe), var(--tint-base) var(--tint-white)); }
+path.sw-t_check_first { fill: color-mix(in srgb, var(--c-check), var(--tint-base) var(--tint-white)); }
+path.sw-t_do_not_touch { fill: color-mix(in srgb, var(--c-dnt), var(--tint-base) var(--tint-white)); }
+path.sw-t_unknown { fill: color-mix(in srgb, var(--c-unknown), var(--tint-base) var(--tint-white)); }
+path.sw-t_personal { fill: color-mix(in srgb, var(--c-personal), var(--tint-base) var(--tint-white)); }
+.sw-inline.sw-t_safe::before { background: color-mix(in srgb, var(--c-safe), var(--tint-base) var(--tint-white)); }
+.sw-inline.sw-t_check_first::before { background: color-mix(in srgb, var(--c-check), var(--tint-base) var(--tint-white)); }
+.sw-inline.sw-t_do_not_touch::before { background: color-mix(in srgb, var(--c-dnt), var(--tint-base) var(--tint-white)); }
+.sw-inline.sw-t_unknown::before { background: color-mix(in srgb, var(--c-unknown), var(--tint-base) var(--tint-white)); }
+.sw-inline.sw-t_personal::before { background: color-mix(in srgb, var(--c-personal), var(--tint-base) var(--tint-white)); }
+.panel-mix { margin: var(--sp-2) 0 0; font-size: var(--fs-xs); color: var(--text-2); font-variant-numeric: tabular-nums; line-height: 1.7; }
+.panel-mix .sw-inline { margin-right: var(--sp-3); white-space: nowrap; }
+.panel-mix .sw-inline::before { margin-right: 4px; }
 .legend .sw-container::before, .sw-inline.sw-container::before { background: var(--c-container); }
 .details-block.no-head { padding-top: 0; }
 .details-block.no-head > details.exp:first-child { border-top: 0; }
@@ -713,8 +728,22 @@ h3.sub-title { font-size: var(--fs-xl); font-weight: 600; margin: var(--sp-2) 0 
     }
     return w;
   }
-  const colorKey = (n) => (n.other ? "other" : n.category === "personal" ? "personal" : n.category === "container" ? "container" : labelKey(n));
-  const COLOR_NAMES = { safe: "Safe to remove", check_first: "Check first", do_not_touch: "Do not touch", unknown: "Unknown", personal: "Personal files", container: "Holds other folders", other: "Other and small items" };
+  // A container (Users, AppData, drive root) is tinted by the label holding more than half of its bytes; otherwise it is "Mixed".
+  const MAJORITY = 0.5;
+  function majorityKey(n) {
+    if (!n.mix || !(n.bytes > 0)) return null;
+    const top = n.mix[0];
+    return top && top.key !== "loose" && top.bytes / n.bytes > MAJORITY ? top.key : null;
+  }
+  const colorKey = (n) => {
+    if (n.other) return "other";
+    if (n.category === "personal") return "personal";
+    if (n.category === "container") { const m = majorityKey(n); return m ? "t_" + m : "container"; }
+    return labelKey(n);
+  };
+  const COLOR_NAMES = { safe: "Safe to remove", check_first: "Check first", do_not_touch: "Do not touch", unknown: "Unknown", personal: "Personal files", container: "Mixed", other: "Other and small items", loose: "Loose files",
+    t_safe: "Mostly safe to remove", t_check_first: "Mostly check first", t_do_not_touch: "Mostly do not touch", t_unknown: "Mostly unknown", t_personal: "Mostly personal files" };
+  const mixLine = (n) => (n.mix || []).map((m) => h("span", { class: "sw-inline sw-" + (m.key === "loose" ? "other" : m.key) }, COLOR_NAMES[m.key] + " " + fmtBytes(m.bytes) + " (" + ((100 * m.bytes) / n.bytes).toFixed(m.bytes / n.bytes < 0.1 ? 1 : 0) + "%)"));
   function legend(keys) { return h("div", { class: "legend" }, keys.map((k) => h("span", { class: "sw-" + k, text: COLOR_NAMES[k] }))); }
   function viewToggle(key, label) {
     return h("div", { class: "seg", role: "group", "aria-label": label + ": show as" },
@@ -1106,6 +1135,7 @@ h3.sub-title { font-size: var(--fs-xl); font-weight: 600; margin: var(--sp-2) 0 
           h("dt", { class: "secondary", text: "Older files changed" }), h("dd", { class: "tnum secondary", text: fmtBytes(s.changedBytes) + ", growth unknown" }),
           h("dt", { text: "Files" }), h("dd", { class: "tnum", text: fmtCount(s.files) })) : null,
         h("div", { class: "panel-label" }, chip(c), c.category === "personal" ? h("span", { class: "tag", text: "personal folder" }) : null, c.owner && !c.known ? h("span", { class: "muted", text: " probably " + c.owner }) : null),
+        node.mix && node.mix.length ? h("p", { class: "panel-mix", "aria-label": "Breakdown by label" }, mixLine(node)) : null,
         h("p", { class: "panel-what", text: c.what }),
         h("div", { class: "panel-reclaim" }, h("div", { class: "panel-kicker", text: "How to reclaim" }), reclaimNode(c, false)),
         h("div", { class: "row" },
@@ -1163,7 +1193,8 @@ h3.sub-title { font-size: var(--fs-xl); font-weight: 600; margin: var(--sp-2) 0 
         timelineChart(root, days, animate)),
       h("section", { class: "block" },
         h("div", { class: "block-head" }, h("h2", { text: "What takes the space" }), h("div", { class: "right" }, legend(["safe", "check_first", "do_not_touch", "unknown", "personal", "container", "other"]), viewToggle("sunTable", "What takes the space"))),
-        sunburst(root, animate)),
+        sunburst(root, animate),
+        h("p", { class: "chart-note", text: "A muted shade is a folder where more than half of the bytes are that kind of content. Mixed means no kind has more than half." })),
       h("section", { class: "block details-block" },
         h("div", { class: "block-head" }, h("h2", { text: "Details" })),
         detailsItem("growth", "Recent growth", g.rows.length + " places, ranked by new files", renderGrowthDetails, pending),

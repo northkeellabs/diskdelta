@@ -162,6 +162,14 @@ export interface TreemapNode {
   children?: TreemapNode[];
   /** Files directly in the folder plus folders too small to draw. */
   other?: boolean;
+  /** Containers only: bytes per colour key (safe, check_first, do_not_touch, unknown, personal, loose), largest first. Covers the whole subtree, not just the drawn levels. */
+  mix?: LabelMixEntry[];
+}
+
+export interface LabelMixEntry {
+  /** safe, check_first, do_not_touch, unknown, personal, or loose (files sitting directly in a container). */
+  key: string;
+  bytes: number;
 }
 
 /** One bar of the growth timeline: new files created in a 24-hour period counted back from the scan time. */
@@ -628,6 +636,7 @@ export class DiskDeltaCore {
     const build = (x: number, level: number): TreemapNode => {
       const cls = this.classify(t, x);
       const node: TreemapNode = { name: t.parent[x] < 0 ? t.path(x) : t.name[x], path: t.path(x), bytes: t.totalBytes[x], label: cls.label, known: cls.known, category: cls.category, newBytes: g.newBytes[x], changedBytes: g.changedBytes[x] };
+      if (cls.category === "container") node.mix = this.labelMix(t, x);
       if (level >= depth) return node;
       const kids = [...t.children[x]].sort((a, b) => t.totalBytes[b] - t.totalBytes[a]);
       // too small to draw: under 0.2% of the parent or 0.05% of the whole map
@@ -640,6 +649,22 @@ export class DiskDeltaCore {
       return node;
     };
     return build(id, 0);
+  }
+
+  /** Bytes under a container folder per label. Descends through containers only; any other folder counts whole under its own label. */
+  private labelMix(t: ScanTree, id: number): LabelMixEntry[] {
+    const sums = new Map<string, number>();
+    const add = (k: string, b: number) => { if (b > 0) sums.set(k, (sums.get(k) ?? 0) + b); };
+    const walk = (x: number): void => {
+      add("loose", t.ownBytes[x]);
+      for (const c of t.children[x]) {
+        const cls = this.classify(t, c);
+        if (cls.category === "container") walk(c);
+        else add(cls.category === "personal" ? "personal" : cls.known ? cls.label : "unknown", t.totalBytes[c]);
+      }
+    };
+    walk(id);
+    return [...sums].map(([key, bytes]) => ({ key, bytes })).sort((a, b) => b.bytes - a.bytes);
   }
 
   /** Ranked cleanup candidates: what rules call safe, then check first, then large unknown folders. Proposes only. */
