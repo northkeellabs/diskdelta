@@ -29,7 +29,7 @@ DiskDelta is a free, open-source Windows tool that answers that question for you
 
 **Portable exe (no install, no admin):** download `diskdelta-<version>-win-x64.exe` from the [releases page](https://github.com/northkeellabs/diskdelta/releases), check it against `SHA256SUMS.txt`, and double-click it. It opens the page in your default browser on `http://127.0.0.1` and stops when you close the page.
 
-The exe is not code-signed yet, so Windows SmartScreen may warn you the first time ("Windows protected your PC"). Check the SHA-256 checksum first (`Get-FileHash .\diskdelta-0.1.1-win-x64.exe`), then choose "More info", "Run anyway".
+The exe is not code-signed yet, so Windows SmartScreen may warn you the first time ("Windows protected your PC"). Check the SHA-256 checksum first (`Get-FileHash .\diskdelta-0.1.2-win-x64.exe`), then choose "More info", "Run anyway".
 
 **With Node.js 22 or newer:** (the npm package is not published yet; until it is, clone this repo, run `npm ci` and `npm run build`, and use `node dist/cli.js` wherever `npx diskdelta` appears below)
 

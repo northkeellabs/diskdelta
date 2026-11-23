@@ -108,6 +108,14 @@
     { "path": "C:\\Users\\alex\\.zephyrtool", "expected": "unknown", "owner": "zephyrtool" },
     { "path": "C:\\Users\\alex\\AppData\\Local\\Packages\\Contoso.NotesApp_8wekyb3d8bbwe\\LocalCache", "expected": "unknown", "owner": "Contoso.NotesApp" },
     { "path": "D:\\Renders\\final", "expected": "unknown" },
-    { "path": "C:\\Temp\\pagefile.sys", "expected": "unknown", "note": "a copy outside the drive root is not the page file" }
+    { "path": "C:\\Temp\\pagefile.sys", "expected": "unknown", "note": "a copy outside the drive root is not the page file" },
+
+    { "path": "C:\\Users\\alex\\AppData\\Local\\Stremio\\stremio-cache", "expected": "safe", "rule": "stremio-cache", "note": "v0.1.2: Stremio streaming cache" },
+    { "path": "C:\\Users\\alex\\AppData\\Local\\Stremio\\stremio-cache\\0a1b2c3d4e5f60718293a4b5c6d7e8f901234567", "expected": "safe", "rule": "stremio-cache" },
+    { "path": "C:\\Users\\alex\\AppData\\Local\\Stremio", "expected": "unknown", "owner": "Stremio", "note": "the rest of the Stremio folder is not safe" },
+    { "path": "C:\\Users\\alex\\AppData\\Local\\Stremio\\stremio-server", "expected": "unknown", "owner": "Stremio", "note": "server files and settings next to the cache are not safe" },
+    { "path": "C:\\Users\\alex\\.local\\share\\claude\\versions", "expected": "check_first", "rule": "claude-code-versions", "note": "v0.1.2: Claude Code installed versions" },
+    { "path": "C:\\Users\\alex\\.local\\share\\claude\\versions\\9.9.9", "expected": "check_first", "rule": "claude-code-versions" },
+    { "path": "C:\\Users\\alex\\.local\\share\\claude", "expected": "unknown", "note": "only the versions folder has a rule; the parent holds other Claude Code data" }
   ]
 }

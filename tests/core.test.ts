@@ -106,6 +106,23 @@ describe("Core API on the demo PC", () => {
     expect(tm.children!.find((c) => c.name === "Videos")?.category).toBe("personal");
   });
 
+  it("container nodes carry a per-label byte mix that covers the whole subtree, largest first; other nodes carry none", () => {
+    const tm = core.treemap("C:\\", { depth: 2 });
+    const users = tm.children!.find((c) => c.name === "Users")!;
+    expect(users.category).toBe("container");
+    const mix = users.mix!;
+    expect(mix.reduce((s, m) => s + m.bytes, 0)).toBe(users.bytes);
+    expect(mix.map((m) => m.bytes)).toEqual([...mix.map((m) => m.bytes)].sort((a, b) => b - a));
+    expect(new Set(mix.map((m) => m.key)).size).toBe(mix.length);
+    expect(mix.every((m) => ["safe", "check_first", "do_not_touch", "unknown", "personal", "loose"].includes(m.key))).toBe(true);
+    // the mix is there even at the outermost drawn level
+    const deep = core.treemap("C:\\", { depth: 3 }).children!.find((c) => c.name === "Users")!.children![0].children!.find((c) => c.name === "AppData")!;
+    expect(deep.mix).toBeDefined();
+    expect(deep.mix![0].key).toBe("check_first");
+    expect(deep.mix![0].bytes / deep.bytes).toBeGreaterThanOrEqual(0.6);
+    expect(core.treemap("C:\\Users\\demo\\Videos", { depth: 1 }).mix).toBeUndefined();
+  });
+
   it("a shorter window shows less", () => {
     const a = core.whatGrew("C:\\", { days: 7 }).total.newBytes;
     const b = core.whatGrew("C:\\", { days: 90 }).total.newBytes;

@@ -575,6 +575,26 @@
       "examples": { "match": ["%LOCALAPPDATA%\\Packages\\CanonicalGroupLimited.Ubuntu22.04LTS_79rhkp1fndgsc\\LocalState\\ext4.vhdx"], "no_match": ["%LOCALAPPDATA%\\Packages\\Contoso.NotesApp_8wekyb3d8bbwe"] }
     },
     {
+      "id": "stremio-cache",
+      "category": "app-cache",
+      "match": ["%LOCALAPPDATA%\\Stremio\\stremio-cache", "%APPDATA%\\stremio\\stremio-server\\stremio-cache"],
+      "label": "safe",
+      "what": "Stremio streaming cache: video data the Stremio server keeps while you stream.",
+      "reclaim": "Close Stremio, then delete the folders inside stremio-cache. Or lower the Cache size limit in Stremio's settings so it keeps less.",
+      "notes": "Only this folder. Check the cache location in Stremio's settings first, it can be moved. Nothing else in the Stremio folders is covered by this rule.",
+      "examples": { "match": ["%LOCALAPPDATA%\\Stremio\\stremio-cache\\0a1b2c3d4e5f60718293a4b5c6d7e8f901234567", "%APPDATA%\\stremio\\stremio-server\\stremio-cache"], "no_match": ["%LOCALAPPDATA%\\Stremio", "%LOCALAPPDATA%\\Stremio\\stremio-server"] }
+    },
+    {
+      "id": "claude-code-versions",
+      "category": "app-data",
+      "match": ["%USERPROFILE%\\.local\\share\\claude\\versions"],
+      "label": "check_first",
+      "what": "Claude Code program versions kept side by side by its native installer.",
+      "reclaim": "Update Claude Code (claude update): the installer removes old versions itself and keeps the newest two. If more are left, close Claude Code and delete all but the newest version.",
+      "notes": "Keep the newest version, it is the one the launcher starts. Never delete a version that a running Claude Code uses, or the .local\\bin launcher.",
+      "examples": { "match": ["%USERPROFILE%\\.local\\share\\claude\\versions", "%USERPROFILE%\\.local\\share\\claude\\versions\\9.9.9"], "no_match": ["%USERPROFILE%\\.local\\share\\claude", "%USERPROFILE%\\.claude"] }
+    },
+    {
       "id": "claude-vm-bundles",
       "category": "vm-disk",
       "match": ["**\\Claude\\vm_bundles", "%LOCALAPPDATA%\\Claude-Data\\*\\vm_bundles", "%APPDATA%\\Claude-Data\\*\\vm_bundles"],
