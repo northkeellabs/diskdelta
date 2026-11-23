@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://northkeellabs.com/diskdelta/rules.schema.json",
+  "title": "DiskDelta rules",
+  "type": "object",
+  "required": ["version", "rules"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "const": 1 },
+    "rules": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/rule" } }
+  },
+  "definitions": {
+    "pattern": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 300,
+      "description": "Windows path pattern. Starts with an environment root (%TEMP%, %LOCALAPPDATA%, %APPDATA%, %USERPROFILE%, %PROGRAMDATA%, %PROGRAMFILES%, %PROGRAMFILES(X86)%, %WINDIR%, %SYSTEMDRIVE%), any drive (?:) or ** (any folders). Segments are separated by a backslash; * inside a segment matches any characters, ** matches any number of folders.",
+      "pattern": "^(%(TEMP|LOCALAPPDATA|APPDATA|USERPROFILE|PROGRAMDATA|PROGRAMFILES|PROGRAMFILES\\(X86\\)|WINDIR|SYSTEMDRIVE)%|\\?:|\\*\\*)(\\\\[^\\\\/:\"<>|?]+)*$"
+    },
+    "example": {
+      "oneOf": [
+        { "type": "string", "minLength": 2 },
+        {
+          "type": "object",
+          "required": ["path", "siblings"],
+          "additionalProperties": false,
+          "properties": {
+            "path": { "type": "string", "minLength": 2 },
+            "siblings": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      ]
+    },
+    "rule": {
+      "type": "object",
+      "required": ["id", "category", "match", "label", "what", "reclaim", "examples"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "maxLength": 60 },
+        "category": {
+          "enum": ["temp", "leftovers", "browser-cache", "app-cache", "package-cache", "dev-build", "model-store", "vm-disk", "app-data", "installed-apps", "system", "personal", "container"]
+        },
+        "kind": { "enum": ["path", "sibling_group"], "description": "path (default): the pattern names the folder or file. sibling_group: the folder must also share a name prefix with at least min_siblings sibling folders." },
+        "min_siblings": { "type": "integer", "minimum": 3 },
+        "match": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/pattern" } },
+        "label": { "enum": ["safe", "check_first", "do_not_touch"] },
+        "what": { "type": "string", "minLength": 5, "maxLength": 200, "description": "One line: what this is." },
+        "reclaim": { "type": "string", "minLength": 5, "maxLength": 400, "description": "How to free the space, preferring the owning app's own command." },
+        "command": { "type": "string", "minLength": 2, "maxLength": 200, "description": "The one command the page offers to copy. Must appear word for word in reclaim." },
+        "notes": { "type": "string", "maxLength": 400 },
+        "inherit": { "type": "boolean", "description": "Default true: the rule also covers everything inside the matched folder. false: only the folder itself." },
+        "cap_inside": { "const": "check_first", "description": "Nothing inside a folder matched by this rule may be labelled safe." },
+        "candidate": { "type": "boolean", "description": "Default true: offered in cleanup plans (do_not_touch never is)." },
+        "descend": { "type": "boolean", "description": "Default false: growth reports show this folder as one unit. true: they look at the folders inside it." },
+        "examples": {
+          "type": "object",
+          "required": ["match", "no_match"],
+          "additionalProperties": false,
+          "properties": {
+            "match": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/example" } },
+            "no_match": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/example" } }
+          }
+        }
+      },
+      "if": { "properties": { "kind": { "const": "sibling_group" } }, "required": ["kind"] },
+      "then": { "required": ["min_siblings"] }
+    }
+  }
+}

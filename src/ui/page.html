@@ -1,0 +1,1594 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>DiskDelta</title>
+<style nonce="__NONCE__">
+:root {
+  --bg: #f3f3f3;
+  --surface: #ffffff;
+  --surface-2: #f8f8f8;
+  --hover: #f0f0f0;
+  --border: #e3e3e3;
+  --border-strong: #cdcdcd;
+  --text: #1a1a1a;
+  --text-2: #5c5c5c;
+  --text-3: #737373;
+  --accent: #0a5fb4;
+  --accent-hover: #084f96;
+  --accent-soft: #e6eef8;
+  --accent-text: #ffffff;
+  --focus: #0a5fb4;
+  --safe-fg: #276843;
+  --safe-bg: #e4f1e8;
+  --safe-tile: #d6eadc;
+  --check-fg: #7a5600;
+  --check-bg: #f7eed8;
+  --check-tile: #f2e7c9;
+  --dnt-fg: #9a2f3a;
+  --dnt-bg: #f6e3e5;
+  --dnt-tile: #f0d6d9;
+  --unk-fg: #555555;
+  --unk-bg: #ececec;
+  --unk-tile: #e4e4e4;
+  --tile-line: rgba(0,0,0,0.16);
+  --bar-track: #e6e6e6;
+  --bar-full: #b07a00;
+  --shadow: 0 1px 2px rgba(0,0,0,0.06);
+  --radius: 6px;
+  --mono: "Cascadia Mono", Consolas, "Courier New", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1b1b1b;
+    --surface: #242424;
+    --surface-2: #2a2a2a;
+    --hover: #2f2f2f;
+    --border: #353535;
+    --border-strong: #474747;
+    --text: #ebebeb;
+    --text-2: #a8a8a8;
+    --text-3: #8f8f8f;
+    --accent: #62a4f0;
+    --accent-hover: #7db4f3;
+    --accent-soft: #1d2d40;
+    --accent-text: #0d1824;
+    --focus: #62a4f0;
+    --safe-fg: #8ccfa3;
+    --safe-bg: #1e3226;
+    --safe-tile: #25382c;
+    --check-fg: #e2bd6b;
+    --check-bg: #372d16;
+    --check-tile: #3a3222;
+    --dnt-fg: #eea0a8;
+    --dnt-bg: #3a2124;
+    --dnt-tile: #45292d;
+    --unk-fg: #b3b3b3;
+    --unk-bg: #2f2f2f;
+    --unk-tile: #333333;
+    --tile-line: rgba(0,0,0,0.55);
+    --bar-track: #363636;
+    --bar-full: #d9a640;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.45 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+.num, td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.muted { color: var(--text-2); }
+.faint { color: var(--text-3); }
+.mono { font-family: var(--mono); font-size: 12.5px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- top bar ---------- */
+header.bar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; gap: 24px;
+  height: 52px; padding: 0 24px;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+}
+.brand { display: flex; align-items: baseline; gap: 8px; font-weight: 600; font-size: 15px; letter-spacing: -0.01em; }
+.brand .ver { font-weight: 400; font-size: 12px; color: var(--text-3); }
+.badge { display: inline-block; padding: 1px 7px; border: 1px solid var(--border-strong); border-radius: 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; color: var(--text-2); }
+nav.tabs { display: flex; gap: 2px; height: 100%; }
+nav.tabs button {
+  position: relative; height: 100%; padding: 0 12px; border: 0; background: none; cursor: pointer;
+  color: var(--text-2); font-weight: 500;
+}
+nav.tabs button:hover:not([disabled]) { color: var(--text); }
+nav.tabs button[aria-selected="true"] { color: var(--text); }
+nav.tabs button[aria-selected="true"]::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: 0; height: 2px; background: var(--accent); border-radius: 2px 2px 0 0; }
+nav.tabs button[disabled] { color: var(--text-3); cursor: default; }
+.bar .spacer { flex: 1; }
+.bar .controls { display: flex; align-items: center; gap: 12px; }
+
+/* ---------- controls ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 30px; padding: 0 12px; border-radius: 5px; cursor: pointer; white-space: nowrap;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font-weight: 500;
+  transition-property: background-color, border-color, transform;
+  transition-duration: 120ms; transition-timing-function: ease-out;
+}
+.btn:hover:not([disabled]) { background: var(--hover); }
+.btn:active:not([disabled]) { transform: scale(0.96); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.btn.primary:hover:not([disabled]) { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn.small { position: relative; height: 26px; padding: 0 9px; font-size: 13px; }
+.btn.small::after, .crumbs button::after, table.grid thead th button::before, .check::after { content: ""; position: absolute; inset: -7px -4px; }
+.btn.link { border-color: transparent; background: none; color: var(--accent); padding: 0 4px; height: auto; }
+.btn.link:hover:not([disabled]) { background: none; text-decoration: underline; }
+.btn[disabled] { opacity: 0.5; cursor: default; }
+.seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 5px; overflow: hidden; }
+.seg button { height: 28px; padding: 0 10px; border: 0; border-left: 1px solid var(--border-strong); background: var(--surface); cursor: pointer; font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.seg button:first-child { border-left: 0; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--text); font-weight: 600; }
+.seg button:hover:not([aria-pressed="true"]) { background: var(--hover); color: var(--text); }
+input.text {
+  height: 30px; padding: 0 9px; border: 1px solid var(--border-strong); border-radius: 5px; background: var(--surface);
+  min-width: 0;
+}
+input.text:focus-visible { outline-offset: 0; }
+input.days { width: 76px; text-align: right; font-variant-numeric: tabular-nums; }
+.tnum { font-variant-numeric: tabular-nums; }
+input.days::-webkit-inner-spin-button, input.days::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input.days { -moz-appearance: textfield; appearance: textfield; }
+.crumb-row { margin-bottom: 8px; justify-content: space-between; }
+p.lead.mono-lead { font-family: var(--mono); font-size: 12.5px; margin-bottom: 16px; overflow-wrap: anywhere; }
+label.inline { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); font-size: 13px; }
+
+/* ---------- layout ---------- */
+main { max-width: 1320px; margin: 0 auto; padding: 24px; }
+.section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 20px; }
+.section > .head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.section > .head h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.section > .head .sub { color: var(--text-2); font-size: 13px; }
+.section > .head .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.section > .body { padding: 16px; }
+.section > .foot { padding: 10px 16px; border-top: 1px solid var(--border); color: var(--text-2); font-size: 13px; }
+h1.page { font-size: 20px; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01em; text-wrap: balance; }
+.section > .head h2 { text-wrap: balance; }
+p.lead { margin: 0 0 20px; color: var(--text-2); max-width: 760px; text-wrap: pretty; }
+td.what, .explain dd, .section > .foot, .note { text-wrap: pretty; }
+.row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.stats { display: flex; gap: 32px; flex-wrap: wrap; }
+.stat .k { font-size: 12px; color: var(--text-2); }
+.stat .v { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.stat .v small { font-size: 13px; font-weight: 400; color: var(--text-2); }
+.stats.summary { align-items: flex-end; gap: 48px; }
+.stat.headline .v { font-size: 28px; letter-spacing: -0.02em; }
+.stat.secondary .k { color: var(--text-3); }
+.stat.secondary .v { font-size: 15px; font-weight: 500; color: var(--text-2); }
+td.secondary { color: var(--text-2); }
+
+/* ---------- tables ---------- */
+table.grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.grid th, table.grid td { padding: 7px 12px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
+table.grid thead th { position: sticky; top: 52px; background: var(--surface-2); color: var(--text-2); font-weight: 600; font-size: 12px; z-index: 1; }
+table.grid thead th button { all: unset; position: relative; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; }
+table.grid thead th button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 2px; }
+table.grid thead th[aria-sort] button::after { content: ""; display: inline-block; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; }
+table.grid thead th[aria-sort="descending"] button::after { border-top: 5px solid currentColor; }
+table.grid thead th[aria-sort="ascending"] button::after { border-bottom: 5px solid currentColor; }
+table.grid tbody tr { transition: background-color 80ms ease; }
+table.grid tbody tr:hover { background: var(--hover); }
+table.grid tbody tr.clickable { cursor: pointer; }
+table.grid tbody tr:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+table.grid tbody tr:last-child td { border-bottom: 0; }
+table.grid th.num, table.grid td.num { text-align: right; }
+td.path { font-family: var(--mono); font-size: 12.5px; overflow-wrap: anywhere; }
+td.name { font-weight: 500; }
+td.what { color: var(--text-2); min-width: 220px; }
+td.wrap { white-space: normal; }
+.empty { padding: 28px 16px; text-align: center; color: var(--text-2); }
+.table-scroll { min-width: 0; }
+
+/* ---------- labels ---------- */
+.chip { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.chip.safe { color: var(--safe-fg); background: var(--safe-bg); }
+.chip.check_first { color: var(--check-fg); background: var(--check-bg); }
+.chip.do_not_touch { color: var(--dnt-fg); background: var(--dnt-bg); }
+.chip.unknown { color: var(--unk-fg); background: var(--unk-bg); }
+.kind { font-size: 12px; color: var(--text-2); }
+.kind.new { color: var(--accent); font-weight: 600; }
+
+/* ---------- drive bars ---------- */
+.meter { width: 160px; height: 6px; background: var(--bar-track); border-radius: 3px; overflow: hidden; }
+.meter > div { height: 100%; background: var(--accent); border-radius: 3px; }
+.meter.full > div { background: var(--bar-full); }
+.progress { height: 4px; background: var(--bar-track); border-radius: 2px; overflow: hidden; }
+.progress > div { height: 100%; width: 100%; background: var(--accent); transform: scaleX(0); transform-origin: left center; transition: transform 300ms ease-out; }
+.progress.indeterminate > div { width: 30%; transform: none; transition: none; animation: slide 1.4s ease-in-out infinite; }
+@keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(340%); } }
+@media (prefers-reduced-motion: reduce) { .progress.indeterminate > div { animation: none; width: 100%; opacity: 0.4; } * { transition: none !important; } }
+
+/* ---------- breadcrumb + folder header ---------- */
+.crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; font-size: 13px; }
+.crumbs button { all: unset; position: relative; cursor: pointer; padding: 2px 5px; border-radius: 4px; color: var(--text-2); }
+.crumbs button:hover { background: var(--hover); color: var(--text); }
+.crumbs button:focus-visible { outline: 2px solid var(--focus); }
+.crumbs .cur { padding: 2px 5px; font-weight: 600; color: var(--text); }
+.crumbs .sep { color: var(--text-3); }
+.explain { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; font-size: 13px; }
+.explain dt { color: var(--text-2); }
+.explain dd { margin: 0; }
+code.cmd { font-family: var(--mono); font-size: 12.5px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+
+/* ---------- treemap ---------- */
+.tm-wrap { position: relative; }
+.treemap { position: relative; height: 420px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.tile {
+  position: absolute; overflow: hidden; cursor: pointer;
+  border: 1px solid var(--tile-line); background: var(--unk-tile);
+}
+.tile.hover { box-shadow: inset 0 0 0 2px var(--text-2); }
+.check { position: relative; display: inline-flex; width: 16px; height: 16px; align-items: center; justify-content: center; cursor: pointer; }
+.check input { margin: 0; cursor: pointer; }
+.tile:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; z-index: 2; }
+.tile.safe { background: var(--safe-tile); }
+.tile.check_first { background: var(--check-tile); }
+.tile.do_not_touch { background: var(--dnt-tile); }
+.tile.unknown { background: var(--unk-tile); }
+.tile.other { background: var(--surface-2); border-style: dashed; border-color: var(--border-strong); }
+.tile .t { position: absolute; left: 5px; right: 5px; top: 2px; height: 16px; font-size: 12px; font-weight: 600; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); pointer-events: none; }
+.tile .t .s { font-weight: 400; color: var(--text-2); font-variant-numeric: tabular-nums; margin-left: 6px; }
+.tile .heatfill { position: absolute; inset: 0; background: var(--accent); pointer-events: none; }
+.tile.heat { background: var(--surface-2); }
+.tm-info { min-height: 22px; margin-top: 8px; font-size: 13px; color: var(--text-2); display: flex; gap: 16px; flex-wrap: wrap; }
+.tm-info b { color: var(--text); font-weight: 600; }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--text-2); align-items: center; flex-wrap: wrap; }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; background: var(--unk-tile); }
+.legend .safe::before { background: var(--safe-tile); }
+.legend .check_first::before { background: var(--check-tile); }
+.legend .do_not_touch::before { background: var(--dnt-tile); }
+.legend .heat0::before { background: var(--surface-2); border: 1px solid var(--border-strong); }
+.legend .heat1::before { background: var(--accent); }
+
+/* ---------- banners / dialog ---------- */
+.note { padding: 10px 14px; border: 1px solid var(--border); border-left: 3px solid var(--accent); background: var(--surface); border-radius: 4px; color: var(--text-2); font-size: 13px; margin-bottom: 16px; }
+.note.stopped { border-left-color: var(--dnt-fg); color: var(--text); }
+.error { color: var(--dnt-fg); font-size: 13px; }
+.okmsg { color: var(--safe-fg); font-size: 13px; }
+dialog { border: 1px solid var(--border-strong); border-radius: 8px; padding: 0; background: var(--surface); color: var(--text); width: min(560px, 92vw); box-shadow: 0 8px 28px rgba(0,0,0,0.18); }
+dialog::backdrop { background: rgba(0,0,0,0.3); }
+dialog .head { padding: 14px 18px; border-bottom: 1px solid var(--border); font-weight: 600; }
+dialog .body { padding: 16px 18px; display: grid; gap: 12px; }
+dialog .foot { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+dialog .field { display: grid; gap: 4px; }
+dialog .field > span { font-size: 12px; color: var(--text-2); }
+.tag { display: inline-block; font-size: 11px; padding: 0 6px; border: 1px solid var(--border-strong); border-radius: 3px; color: var(--text-2); margin-left: 6px; font-weight: 500; vertical-align: 1px; }
+.progress-wrap { margin: 18px 0 10px; }
+.current-path { font-family: var(--mono); font-size: 12px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
+.hidden { display: none !important; }
+footer.foot { max-width: 1320px; margin: 0 auto; padding: 0 24px 32px; color: var(--text-3); font-size: 12px; }
+
+/* ================= redesign: insight first, visuals second, tables in details ================= */
+:root {
+  --fs-xs: 12px; --fs-sm: 13px; --fs-md: 14px; --fs-lg: 16px; --fs-xl: 20px; --fs-2xl: 28px; --fs-3xl: 36px; --fs-hero: 56px;
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px; --sp-7: 48px;
+  --card-radius: 10px;
+  --card-shadow: 0 0 0 1px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04), 0 2px 10px rgba(0,0,0,0.05);
+  --c-safe: #3a9a64; --c-check: #d39a2c; --c-dnt: #cc5a66; --c-unknown: #a9a9a9; --c-personal: #8770c8; --c-other: #dcdcdc; --c-container: #c9d2dc;
+  --c-bar: var(--accent); --c-bar-sel: #063f78;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --card-shadow: 0 0 0 1px rgba(255,255,255,0.07), 0 1px 2px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.35);
+    --c-safe: #4cb47b; --c-check: #ddac48; --c-dnt: #df707b; --c-unknown: #7b7b7b; --c-personal: #a28fe0; --c-other: #3b3b3b; --c-container: #4a5560;
+    --c-bar-sel: #b4d3fa;
+  }
+}
+main { max-width: 1240px; padding: var(--sp-6) var(--sp-5) var(--sp-7); }
+h1.display { font-size: var(--fs-3xl); line-height: 1.15; font-weight: 650; letter-spacing: -0.02em; margin: 0 0 var(--sp-2); text-wrap: balance; }
+.intro { margin-bottom: var(--sp-6); }
+.intro .lead { font-size: var(--fs-lg); max-width: 680px; margin-bottom: var(--sp-5); }
+.btn.big { height: 40px; padding: 0 var(--sp-5); font-size: var(--fs-md); font-weight: 600; border-radius: 6px; }
+.row.pad { padding: var(--sp-3) var(--sp-4); }
+p.pad { padding: var(--sp-3) var(--sp-4); margin: 0; }
+.folder-input { width: min(420px, 100%); }
+
+/* blocks: soft cards for the overview */
+.block { background: var(--surface); border: 1px solid transparent; border-radius: var(--card-radius); box-shadow: var(--card-shadow); padding: var(--sp-5); margin-bottom: var(--sp-5); }
+.block-head { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-4); flex-wrap: wrap; }
+.block-head h2 { margin: 0; font-size: var(--fs-xl); font-weight: 600; letter-spacing: -0.01em; }
+.block-head .block-sub { color: var(--text-2); font-size: var(--fs-sm); }
+.block-head .right { margin-left: auto; display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap; }
+
+/* hero */
+.hero { padding: var(--sp-2) 0 var(--sp-6); }
+.hero-line { margin: 0; font-size: var(--fs-2xl); line-height: 1.2; font-weight: 500; letter-spacing: -0.015em; text-wrap: balance; }
+.hero-where { font-weight: 650; }
+.hero-num { display: inline-block; font-size: var(--fs-hero); font-weight: 700; letter-spacing: -0.03em; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; vertical-align: -6px; margin: 0 2px; }
+.hero-sub { margin: var(--sp-3) 0 0; font-size: var(--fs-lg); color: var(--text-2); max-width: 760px; text-wrap: pretty; }
+.hero-meta { margin: var(--sp-2) 0 0; font-size: var(--fs-sm); color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+/* insight cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--sp-4); }
+.insight { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-4) var(--sp-4) var(--sp-3); border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); min-width: 0; }
+.insight-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-2); }
+.insight-top h3 { margin: 0; font-size: var(--fs-lg); font-weight: 600; line-height: 1.3; text-wrap: balance; }
+.insight-num .plus { font-size: var(--fs-2xl); font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.insight-num .unit { font-size: var(--fs-md); color: var(--text-2); }
+.insight-sub { font-size: var(--fs-xs); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.insight-what { margin: 0; color: var(--text-2); font-size: var(--fs-sm); text-wrap: pretty; }
+.insight-path { font-family: var(--mono); font-size: var(--fs-xs); color: var(--text-3); overflow-wrap: anywhere; }
+.insight-action { font-size: var(--fs-sm); margin-top: auto; padding-top: var(--sp-2); border-top: 1px solid var(--border); min-height: 54px; }
+.insight-foot { display: flex; justify-content: flex-end; }
+.reclaim { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.reclaim .muted { flex-basis: 100%; }
+
+/* timeline */
+.tl-chart { width: 100%; min-height: 230px; }
+.tl-svg { display: block; overflow: visible; }
+.axis { font-size: 11px; fill: var(--text-3); font-variant-numeric: tabular-nums; }
+.grid-line { stroke: var(--border); stroke-width: 1; }
+.axis-line { stroke: var(--border-strong); stroke-width: 1; }
+.bar { fill: var(--c-bar); }
+.bar-hit { fill: transparent; }
+.bar-g { cursor: pointer; outline: none; }
+.bar-g:hover .bar-hit { fill: var(--hover); }
+.bar-g.sel .bar { fill: var(--c-bar-sel); }
+.bar-g.sel .bar-hit { fill: var(--accent-soft); }
+.bar-g:focus-visible .bar-hit { stroke: var(--focus); stroke-width: 2; }
+.tl-svg.draw .bar { transform-box: fill-box; transform-origin: 50% 100%; animation: bar-in 260ms cubic-bezier(0.2, 0, 0, 1) both; }
+@keyframes bar-in { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.chart-note { margin: var(--sp-2) 0 0; font-size: var(--fs-xs); color: var(--text-3); }
+.tl-day { margin-top: var(--sp-4); }
+.day-head { margin: 0 0 var(--sp-2); font-size: var(--fs-md); font-weight: 600; font-variant-numeric: tabular-nums; }
+.day-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border); }
+.day-list li { display: grid; grid-template-columns: 88px minmax(0, 1fr) auto auto; align-items: center; gap: var(--sp-3); padding: 7px 0; border-bottom: 1px solid var(--border); font-size: var(--fs-sm); }
+.day-size { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.day-name { display: flex; flex-direction: column; min-width: 0; }
+.day-title { font-weight: 500; }
+.day-path { font-family: var(--mono); font-size: var(--fs-xs); color: var(--text-3); overflow-wrap: anywhere; }
+
+/* sunburst */
+.sun { display: grid; grid-template-columns: minmax(280px, 480px) minmax(260px, 1fr); gap: var(--sp-6); align-items: start; }
+@media (max-width: 860px) { .sun { grid-template-columns: 1fr; } }
+.sun-chart { min-width: 0; display: flex; justify-content: center; }
+.sun-chart:has(table) { display: block; }
+.sun-svg { display: block; overflow: visible; }
+.arc { stroke: var(--surface); stroke-width: 1; cursor: pointer; transition: opacity 120ms ease-out; }
+.arc.is-other { cursor: default; }
+.arc.ring-2 { fill-opacity: 0.82; }
+.arc.ring-3 { fill-opacity: 0.66; }
+.arc:hover { opacity: 0.85; }
+.arc:focus-visible { outline: none; stroke: var(--focus); stroke-width: 3; }
+.sw-safe, path.sw-safe { fill: var(--c-safe); }
+path.sw-check_first { fill: var(--c-check); }
+path.sw-do_not_touch { fill: var(--c-dnt); }
+path.sw-unknown { fill: var(--c-unknown); }
+path.sw-personal { fill: var(--c-personal); }
+path.sw-other { fill: var(--c-other); }
+path.sw-container { fill: var(--c-container); }
+.legend .sw-container::before, .sw-inline.sw-container::before { background: var(--c-container); }
+.details-block.no-head { padding-top: 0; }
+.details-block.no-head > details.exp:first-child { border-top: 0; }
+.sun-center circle { fill: var(--surface-2); stroke: var(--border); }
+.sun-center.can-up { cursor: pointer; }
+.sun-center.can-up:hover circle { fill: var(--hover); }
+.sun-center:focus-visible { outline: none; }
+.sun-center:focus-visible circle { stroke: var(--focus); stroke-width: 2; }
+.c-name { font-size: 14px; font-weight: 600; fill: var(--text); }
+.c-size { font-size: 18px; font-weight: 700; fill: var(--text); font-variant-numeric: tabular-nums; }
+.c-up { font-size: 11px; fill: var(--accent); font-weight: 600; letter-spacing: 0.02em; }
+.sun-svg.draw, .sun-svg.drill-in, .sun-svg.drill-out { transform-origin: 50% 50%; }
+.sun-svg.draw { animation: sun-draw 360ms cubic-bezier(0.2, 0, 0, 1) both; }
+.sun-svg.drill-in { animation: sun-in 260ms cubic-bezier(0.2, 0, 0, 1) both; }
+.sun-svg.drill-out { animation: sun-out 260ms cubic-bezier(0.2, 0, 0, 1) both; }
+@keyframes sun-draw { from { opacity: 0; transform: scale(0.92) rotate(-12deg); } to { opacity: 1; transform: none; } }
+@keyframes sun-in { from { opacity: 0.3; transform: scale(0.86); } to { opacity: 1; transform: none; } }
+@keyframes sun-out { from { opacity: 0.3; transform: scale(1.12); } to { opacity: 1; transform: none; } }
+.sun-panel { border-left: 1px solid var(--border); padding-left: var(--sp-5); min-width: 0; }
+@media (max-width: 860px) { .sun-panel { border-left: 0; padding-left: 0; border-top: 1px solid var(--border); padding-top: var(--sp-4); } }
+.panel-kicker { font-size: var(--fs-xs); font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--sp-1); }
+.panel-title { margin: 0; font-size: var(--fs-xl); font-weight: 600; overflow-wrap: anywhere; }
+.panel-path { font-family: var(--mono); font-size: var(--fs-xs); color: var(--text-3); overflow-wrap: anywhere; margin-top: 2px; }
+.panel-size { font-size: var(--fs-3xl); font-weight: 700; letter-spacing: -0.02em; margin: var(--sp-3) 0 var(--sp-2); font-variant-numeric: tabular-nums; }
+.panel-facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px var(--sp-4); margin: 0 0 var(--sp-3); font-size: var(--fs-sm); }
+.panel-facts dt { color: var(--text-2); }
+.panel-facts dd { margin: 0; }
+.panel-facts .secondary { color: var(--text-3); }
+.panel-label { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.panel-label .tag { margin-left: 0; }
+.panel-what { margin: var(--sp-3) 0; color: var(--text-2); font-size: var(--fs-sm); text-wrap: pretty; }
+.panel-reclaim { margin-bottom: var(--sp-4); font-size: var(--fs-sm); }
+
+/* legend swatches */
+.legend span[class^="sw-"]::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.legend .sw-safe::before, .sw-inline.sw-safe::before { background: var(--c-safe); }
+.legend .sw-check_first::before, .sw-inline.sw-check_first::before { background: var(--c-check); }
+.legend .sw-do_not_touch::before, .sw-inline.sw-do_not_touch::before { background: var(--c-dnt); }
+.legend .sw-unknown::before, .sw-inline.sw-unknown::before { background: var(--c-unknown); }
+.legend .sw-personal::before, .sw-inline.sw-personal::before { background: var(--c-personal); }
+.legend .sw-other::before, .sw-inline.sw-other::before { background: var(--c-other); border: 1px solid var(--border-strong); }
+.legend .sw-safe { fill: none; }
+.sw-inline::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+
+/* drives */
+.drive-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--sp-4); margin-bottom: var(--sp-5); }
+.drive { display: grid; grid-template-columns: auto 1fr; grid-template-rows: 1fr auto; gap: var(--sp-3) var(--sp-4); padding: var(--sp-5); background: var(--surface); border: 1px solid transparent; border-radius: var(--card-radius); box-shadow: var(--card-shadow); }
+.drive.remote { box-shadow: 0 0 0 1px var(--border); background: var(--surface-2); }
+.drive .ring { grid-row: 1 / span 2; }
+.drive-info { min-width: 0; }
+.drive-name { display: flex; align-items: baseline; gap: var(--sp-2); }
+.drive-letter { font-size: var(--fs-2xl); font-weight: 700; letter-spacing: -0.02em; }
+.drive-label { font-size: var(--fs-md); color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drive-type { font-size: var(--fs-xs); color: var(--text-3); margin-top: 2px; }
+.drive-free { margin-top: var(--sp-3); font-variant-numeric: tabular-nums; }
+.drive-free-num { font-size: var(--fs-xl); font-weight: 650; letter-spacing: -0.01em; }
+.drive-used { font-size: var(--fs-sm); color: var(--text-2); font-variant-numeric: tabular-nums; margin-top: 2px; }
+.drive-actions { display: flex; align-items: center; gap: var(--sp-2); }
+.ring-track { fill: none; stroke: var(--bar-track); stroke-width: 9; }
+.ring-fill { fill: none; stroke: var(--accent); stroke-width: 9; stroke-linecap: round; }
+.ring-fill.full { stroke: var(--bar-full); }
+.ring-pct { font-size: 18px; font-weight: 700; fill: var(--text); font-variant-numeric: tabular-nums; }
+.ring.draw .ring-fill { animation: ring-in 380ms cubic-bezier(0.2, 0, 0, 1) both; }
+@keyframes ring-in { from { stroke-dashoffset: var(--c); } }
+
+/* details expanders */
+.details-block { padding: var(--sp-5) 0 0; overflow: hidden; }
+.details-block > .block-head { padding: 0 var(--sp-5); }
+details.exp { border-top: 1px solid var(--border); }
+details.exp > summary { display: flex; align-items: baseline; gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); cursor: pointer; list-style: none; }
+details.exp > summary::-webkit-details-marker { display: none; }
+details.exp > summary::before { content: ""; width: 0; height: 0; border-left: 5px solid var(--text-2); border-top: 4px solid transparent; border-bottom: 4px solid transparent; transform: translateY(-1px); transition: transform 120ms ease-out; }
+details.exp[open] > summary::before { transform: translateY(-1px) rotate(90deg); }
+details.exp > summary:hover { background: var(--hover); }
+details.exp > summary:focus-visible { outline-offset: -2px; }
+.exp-title { font-size: var(--fs-lg); font-weight: 600; }
+.exp-sub { font-size: var(--fs-sm); color: var(--text-2); overflow-wrap: anywhere; }
+.exp-body { padding: 0 var(--sp-5) var(--sp-5); }
+.exp-body .section { box-shadow: none; }
+.exp-note { margin: 0 0 var(--sp-3); color: var(--text-2); font-size: var(--fs-sm); max-width: 820px; text-wrap: pretty; }
+h3.sub-title { font-size: var(--fs-xl); font-weight: 600; margin: var(--sp-2) 0 2px; }
+.exp-body table.grid thead th { top: 52px; }
+
+/* tooltip */
+.tip { position: fixed; z-index: 50; max-width: 320px; padding: 8px 10px; background: var(--text); color: var(--surface); border-radius: 6px; font-size: var(--fs-xs); line-height: 1.45; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,0.18); font-variant-numeric: tabular-nums; }
+.tip-title { font-weight: 600; font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.tip-line { opacity: 0.85; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tl-svg.draw .bar, .sun-svg.draw, .sun-svg.drill-in, .sun-svg.drill-out, .ring.draw .ring-fill { animation: none !important; }
+}
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="brand">DiskDelta <span class="ver" id="ver"></span> <span class="badge hidden" id="demo-badge" title="Fictional PC, invented files">DEMO</span></div>
+  <nav class="tabs" role="tablist" aria-label="Views" id="tabs">
+    <button role="tab" id="tab-drives" aria-controls="view" aria-selected="true" data-view="drives">Drives</button>
+    <button role="tab" id="tab-overview" aria-controls="view" aria-selected="false" data-view="overview" disabled>Overview</button>
+
+  </nav>
+  <div class="spacer"></div>
+  <div class="controls">
+    <label class="inline" for="root-select" id="root-label">Drive
+      <select id="root-select" class="text"></select>
+    </label>
+    <span class="inline muted" id="days-label">Last</span>
+    <div class="seg" role="group" aria-labelledby="days-label" id="days-seg">
+      <button type="button" data-days="7" aria-pressed="false">7</button>
+      <button type="button" data-days="30" aria-pressed="true">30</button>
+      <button type="button" data-days="90" aria-pressed="false">90</button>
+    </div>
+    <label class="inline"><input class="text days" id="days-custom" type="number" min="1" max="365" step="1" aria-label="Custom number of days" placeholder="Custom"> days</label>
+    <button class="btn" id="export-btn" type="button" disabled>Export report</button>
+  </div>
+</header>
+
+<main id="view" role="tabpanel" aria-labelledby="tab-drives" tabindex="-1"></main>
+<div id="tip" class="tip hidden" role="tooltip"></div>
+<footer class="foot">DiskDelta is read-only: it never deletes, moves or changes anything on your drives. Free and open source, by Northkeel Labs (northkeellabs.com/diskdelta).</footer>
+
+<dialog id="export-dialog" aria-labelledby="export-title">
+  <div class="head" id="export-title">Export report</div>
+  <div class="body">
+    <div class="field"><span>Format</span>
+      <div class="seg" role="group" aria-label="Format" id="fmt-seg">
+        <button type="button" data-fmt="md" aria-pressed="true">Markdown</button>
+        <button type="button" data-fmt="html" aria-pressed="false">HTML</button>
+      </div>
+    </div>
+    <label class="field"><span>Save as (full path; an existing file is never overwritten)</span>
+      <input class="text mono" id="export-path" type="text" spellcheck="false" autocomplete="off">
+    </label>
+    <div id="export-msg" role="status" aria-live="polite"></div>
+  </div>
+  <div class="foot">
+    <button class="btn" type="button" id="export-cancel">Close</button>
+    <button class="btn primary" type="button" id="export-save">Save report</button>
+  </div>
+</dialog>
+
+<script nonce="__NONCE__">
+"use strict";
+(() => {
+  const TOKEN = new URLSearchParams(location.search).get("t") || "";
+  // Set by the static browser demo (docs/demo): the same API, answered in the page instead of by a local server.
+  const STATIC = window.DISKDELTA_STATIC || null;
+  const state = {
+    view: "drives", days: 30, mode: "live", drives: [], scans: [], job: null, root: null,
+    sizePath: null, sizeSort: { key: "bytes", dir: "desc" }, colorBy: "label", fmt: "md",
+    exportSuggestion: { md: "", html: "" }, stopped: false,
+    open: new Set(), sunPath: null, tlAge: null, tlTable: false, sunTable: false, scanSeq: 0, animKey: null, drivesAnimated: false,
+  };
+
+  // ---------- helpers ----------
+  const UNITS = ["bytes", "KB", "MB", "GB", "TB", "PB"];
+  function fmtBytes(n) {
+    if (!isFinite(n) || n < 0) return "unknown";
+    if (n < 1000) return n + (n === 1 ? " byte" : " bytes");
+    let v = n, i = 0;
+    while (v >= 1000 && i < UNITS.length - 1) { v /= 1024; i++; }
+    return v.toFixed(v >= 100 ? 0 : v >= 10 ? 1 : 2) + " " + UNITS[i];
+  }
+  const fmtCount = (n) => Math.round(n).toLocaleString("en-US");
+  function fmtDur(ms) {
+    const s = Math.round(ms / 1000);
+    if (s < 60) return s + "s";
+    const m = Math.floor(s / 60);
+    if (m < 60) return m + "m " + String(s % 60).padStart(2, "0") + "s";
+    return Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m";
+  }
+  const day = (iso) => (iso ? iso.slice(0, 10) : "unknown");
+  const LABELS = { safe: "Safe to remove", check_first: "Check first", do_not_touch: "Do not touch", unknown: "Unknown, check first" };
+  const labelKey = (r) => (r.known === false ? "unknown" : r.label);
+
+  function h(tag, attrs, ...kids) {
+    const el = document.createElement(tag);
+    if (attrs) for (const [k, v] of Object.entries(attrs)) {
+      if (v === null || v === undefined || v === false) continue;
+      if (k === "class") el.className = v;
+      else if (k === "text") el.textContent = v;
+      else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+      else if (k === "dataset") Object.assign(el.dataset, v);
+      else el.setAttribute(k, v === true ? "" : String(v));
+    }
+    for (const c of kids.flat()) if (c !== null && c !== undefined && c !== false) el.append(c.nodeType ? c : document.createTextNode(String(c)));
+    return el;
+  }
+  /** A path that wraps only after a backslash. */
+  function pathNode(p) {
+    const s = h("span");
+    const parts = p.split("\\");
+    parts.forEach((part, i) => { s.append(part + (i < parts.length - 1 ? "\\" : "")); if (i < parts.length - 1) s.append(h("wbr")); });
+    return s;
+  }
+  let hovered = null;
+  function setHover(el) { if (hovered && hovered !== el) hovered.classList.remove("hover"); hovered = el; if (el) el.classList.add("hover"); }
+  const chip = (r) => h("span", { class: "chip " + labelKey(r), text: LABELS[labelKey(r)] });
+  const td = (cls, ...kids) => h("td", { class: cls || null }, ...kids);
+  const view = document.getElementById("view");
+
+  async function api(path, params, opts) {
+    if (STATIC) {
+      const q = {};
+      if (params) for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null) q[k] = String(v);
+      const r = await STATIC.api((opts && opts.method) || "GET", path, q, opts && opts.body ? JSON.parse(opts.body) : undefined);
+      if (r.status >= 400) throw new Error((r.body && r.body.error) || ("Error " + r.status));
+      return r.body;
+    }
+    const url = new URL(path, location.origin);
+    if (params) for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
+    const res = await fetch(url, Object.assign({ headers: { "X-DiskDelta-Token": TOKEN, "Content-Type": "application/json" }, cache: "no-store" }, opts || {}));
+    const type = res.headers.get("content-type") || "";
+    const body = type.includes("json") ? await res.json() : await res.text();
+    if (!res.ok) throw new Error((body && body.error) || ("HTTP " + res.status));
+    return body;
+  }
+  const post = (path, body) => api(path, null, { method: "POST", body: JSON.stringify(body || {}) });
+
+  function section(title, sub, right, ...body) {
+    return h("section", { class: "section" },
+      h("div", { class: "head" }, h("h2", { text: title }), sub ? h("span", { class: "sub", text: sub }) : null, right ? h("div", { class: "right" }, right) : null),
+      ...body);
+  }
+  function errorBox(e) { return h("div", { class: "note stopped", role: "alert", text: String(e && e.message || e) }); }
+
+  /** A sortable, keyboard-navigable table. cols: {key, title, num, cls, render(row), sort(row)} */
+  function grid(cols, rows, opts) {
+    opts = opts || {};
+    const sort = opts.sort;
+    const thead = h("thead", null, h("tr", null, cols.map((c) => {
+      const th = h("th", { class: c.num ? "num" : null, scope: "col" });
+      if (sort && c.sortable !== false && c.sort) {
+        if (sort.key === c.key) th.setAttribute("aria-sort", sort.dir === "asc" ? "ascending" : "descending");
+        th.append(h("button", { type: "button", text: c.title, onclick: () => opts.onSort(c.key) }));
+      } else th.textContent = c.title;
+      return th;
+    })));
+    let list = rows.slice();
+    if (sort) {
+      const col = cols.find((c) => c.key === sort.key);
+      if (col && col.sort) list.sort((a, b) => {
+        const x = col.sort(a), y = col.sort(b);
+        const r = typeof x === "string" ? x.localeCompare(y) : x - y;
+        return sort.dir === "asc" ? r : -r;
+      });
+    }
+    const tbody = h("tbody");
+    for (const r of list) {
+      const tr = h("tr", null, cols.map((c) => { const cell = td((c.num ? "num " : "") + (c.cls || ""), c.render(r)); return cell; }));
+      if (opts.onOpen && (!opts.canOpen || opts.canOpen(r))) {
+        tr.classList.add("clickable");
+        tr.tabIndex = 0;
+        tr.addEventListener("click", (ev) => { if (ev.target.closest("button,a")) return; opts.onOpen(r); });
+        tr.addEventListener("keydown", (ev) => {
+          if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); opts.onOpen(r); }
+          else if (ev.key === "ArrowDown") { ev.preventDefault(); let n = tr.nextElementSibling; while (n && n.tabIndex < 0) n = n.nextElementSibling; if (n) n.focus(); }
+          else if (ev.key === "ArrowUp") { ev.preventDefault(); let n = tr.previousElementSibling; while (n && n.tabIndex < 0) n = n.previousElementSibling; if (n) n.focus(); }
+        });
+      }
+      tbody.append(tr);
+    }
+    if (!list.length) tbody.append(h("tr", null, h("td", { class: "empty", colspan: cols.length, text: opts.empty || "Nothing to show." })));
+    return h("div", { class: "table-scroll" }, h("table", { class: "grid" }, thead, tbody));
+  }
+
+  // ---------- cached API: answers only change after a scan, so routine clicks never refetch ----------
+  const cache = new Map();
+  function cached(path, params) {
+    const key = path + "?" + JSON.stringify(params || {});
+    if (!cache.has(key)) cache.set(key, api(path, params).catch((e) => { cache.delete(key); throw e; }));
+    return cache.get(key);
+  }
+  const reduceMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const SVGNS = "http://www.w3.org/2000/svg";
+  function svgEl(tag, attrs, text) {
+    const el = document.createElementNS(SVGNS, tag);
+    if (attrs) for (const [k, v] of Object.entries(attrs)) if (v !== null && v !== undefined && v !== false) el.setAttribute(k, String(v));
+    if (text !== undefined) el.textContent = text;
+    return el;
+  }
+  const within = (p, root) => { const a = p.toLowerCase(), b = root.toLowerCase(); return a === b || a.startsWith(b.endsWith("\\") ? b : b + "\\"); };
+  const parentOf = (p) => { const i = p.lastIndexOf("\\"); if (i < 0) return null; return i <= 2 ? p.slice(0, 3) : p.slice(0, i); };
+  const shortDate = (iso) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+  // ---------- tooltip shared by the charts ----------
+  const tip = document.getElementById("tip");
+  function showTip(lines, x, y) {
+    tip.replaceChildren(...lines.map((l, i) => h("div", { class: i === 0 ? "tip-title" : "tip-line" }, l)));
+    tip.classList.remove("hidden");
+    const r = tip.getBoundingClientRect();
+    const left = Math.min(window.innerWidth - r.width - 12, x + 14);
+    const top = y + 16 + r.height > window.innerHeight ? y - r.height - 12 : y + 16;
+    tip.style.left = Math.max(8, left) + "px";
+    tip.style.top = Math.max(8, top) + "px";
+  }
+  function showTipAt(el, lines) { const r = el.getBoundingClientRect(); showTip(lines, r.left + r.width / 2, r.top + r.height / 2); }
+  const hideTip = () => tip.classList.add("hidden");
+
+  // ---------- reclaim actions ----------
+  function copyBtn(text) {
+    const b = h("button", { class: "btn small", type: "button", text: "Copy", "aria-label": "Copy command " + text });
+    b.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => { b.textContent = "Copied"; setTimeout(() => (b.textContent = "Copy"), 1200); }, () => {});
+    });
+    return b;
+  }
+  function commandOf(reclaim) {
+    const ok = /^([a-z][\w.-]*( [\w.<>=:\\/-]+)*)$/i.test(reclaim.split(/[(;]/)[0].trim()) && /^(npm|pnpm|yarn|pip|uv|conda|ollama|docker|dotnet|go|cargo|wsl|powercfg|Dism|huggingface-cli|gradle) /i.test(reclaim);
+    return ok ? reclaim.split(/ \(|;|\. /)[0] : null;
+  }
+  const firstSentence = (s) => { const m = s.match(/^.*?\.(\s|$)/); return m ? m[0].trim() : s; };
+  function reclaimNode(r, compact) {
+    const cmd = r.command || commandOf(r.reclaim || "");
+    if (!cmd) return h("span", { class: "reclaim-text", text: compact ? firstSentence(r.reclaim || "") : r.reclaim });
+    const rest = r.reclaim.startsWith(cmd) ? r.reclaim.slice(cmd.length).replace(/^[.;]?\s*/, "") : r.reclaim;
+    return h("span", { class: "reclaim" }, h("code", { class: "cmd", text: cmd }), " ", copyBtn(cmd), rest && !compact ? h("div", { class: "muted", text: rest }) : null);
+  }
+
+  // ---------- plain names for folders ----------
+  function plainName(r) {
+    const segs = r.path.split("\\").filter(Boolean);
+    const last = segs[segs.length - 1] || r.path;
+    const parent = segs[segs.length - 2];
+    if (r.scope === "group") return r.groupCount + " temp folders named " + last;
+    if (r.scope === "rest") return "Smaller folders in " + last;
+    if (r.scope === "own") return "Files directly in " + last;
+    if (r.known === false) return r.owner ? r.owner + " (unknown app)" : last;
+    if (r.category === "personal" || r.category === "container") return parent && segs.length > 1 ? last + " in " + parent : last;
+    const t = (r.what || "").split(/:|\s\(|\.\s|\.$/)[0].trim();
+    return t || last;
+  }
+  function whatLine(r, title) {
+    const w = (r.what || "").replace(/\s\(\d+ folders starting with .*\)$/, "");
+    if (title && w.toLowerCase().startsWith(title.toLowerCase())) {
+      const rest = w.slice(title.length).replace(/^[\s:,(]+/, "").replace(/\)\.?$/, ".").trim();
+      return rest.length > 1 ? rest[0].toUpperCase() + rest.slice(1) : "";
+    }
+    return w;
+  }
+  const colorKey = (n) => (n.other ? "other" : n.category === "personal" ? "personal" : n.category === "container" ? "container" : labelKey(n));
+  const COLOR_NAMES = { safe: "Safe to remove", check_first: "Check first", do_not_touch: "Do not touch", unknown: "Unknown", personal: "Personal files", container: "Holds other folders", other: "Other and small items" };
+  function legend(keys) { return h("div", { class: "legend" }, keys.map((k) => h("span", { class: "sw-" + k, text: COLOR_NAMES[k] }))); }
+  function viewToggle(key, label) {
+    return h("div", { class: "seg", role: "group", "aria-label": label + ": show as" },
+      h("button", { type: "button", "aria-pressed": String(!state[key]), text: "Chart", onclick: () => { state[key] = false; render(); } }),
+      h("button", { type: "button", "aria-pressed": String(!!state[key]), text: "Table", onclick: () => { state[key] = true; render(); } }));
+  }
+
+  // ---------- header controls ----------
+  const tabs = Array.from(document.querySelectorAll("#tabs button"));
+  tabs.forEach((b) => b.addEventListener("click", () => go(b.dataset.view)));
+  document.getElementById("tabs").addEventListener("keydown", (ev) => {
+    if (ev.key !== "ArrowRight" && ev.key !== "ArrowLeft") return;
+    const enabled = tabs.filter((b) => !b.disabled);
+    const i = enabled.indexOf(document.activeElement);
+    if (i < 0) return;
+    const n = enabled[(i + (ev.key === "ArrowRight" ? 1 : enabled.length - 1)) % enabled.length];
+    n.focus(); go(n.dataset.view);
+  });
+  function setTabs() {
+    const has = state.scans.length > 0 && !(state.job && state.job.state === "running");
+    for (const b of tabs) {
+      b.disabled = b.dataset.view !== "drives" && !has;
+      b.setAttribute("aria-selected", String(b.dataset.view === state.view));
+      b.tabIndex = b.dataset.view === state.view ? 0 : -1;
+    }
+    view.setAttribute("aria-labelledby", "tab-" + state.view);
+    document.getElementById("export-btn").disabled = !has;
+    const sel = document.getElementById("root-select");
+    document.getElementById("root-label").classList.toggle("hidden", !has || state.scans.length < 2 || state.view === "drives");
+    sel.replaceChildren(...state.scans.map((s) => h("option", { value: s.root, text: s.root, selected: s.root === state.root })));
+  }
+  function setRoot(root) { state.root = root; state.sizePath = root; state.sunPath = root; state.tlAge = null; }
+  document.getElementById("root-select").addEventListener("change", (ev) => { setRoot(ev.target.value); render(); });
+  const daySeg = Array.from(document.querySelectorAll("#days-seg button"));
+  const daysCustom = document.getElementById("days-custom");
+  function setDays(d) {
+    state.days = d;
+    state.tlAge = null;
+    daySeg.forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.days) === d)));
+    if ([7, 30, 90].includes(d)) daysCustom.value = "";
+    if (state.view !== "drives") render();
+  }
+  daySeg.forEach((b) => b.addEventListener("click", () => setDays(Number(b.dataset.days))));
+  daysCustom.addEventListener("change", () => {
+    const n = Math.round(Number(daysCustom.value));
+    if (n >= 1 && n <= 365) setDays(n); else daysCustom.value = "";
+  });
+
+  function go(v) {
+    state.view = v;
+    render();
+  }
+  /** Opens one of the Details expanders on the overview and scrolls to it. */
+  async function openDetails(key) {
+    state.open.add(key);
+    state.view = "overview";
+    await render();
+    const d = document.getElementById("details-" + key);
+    if (d) d.scrollIntoView({ block: "start", behavior: reduceMotion() ? "auto" : "smooth" });
+  }
+
+  // ---------- drives view ----------
+  function ringSvg(pct, full, size, animate, label) {
+    const r = size / 2 - 6, c = 2 * Math.PI * r;
+    const svg = svgEl("svg", { width: size, height: size, viewBox: "0 0 " + size + " " + size, class: "ring" + (animate ? " draw" : ""), role: "img", "aria-label": label });
+    svg.append(svgEl("circle", { cx: size / 2, cy: size / 2, r, class: "ring-track" }));
+    const arc = svgEl("circle", { cx: size / 2, cy: size / 2, r, class: "ring-fill" + (full ? " full" : ""), "stroke-dasharray": c, "stroke-dashoffset": c * (1 - Math.min(100, pct) / 100), transform: "rotate(-90 " + size / 2 + " " + size / 2 + ")" });
+    arc.style.setProperty("--c", String(c));
+    svg.append(arc);
+    svg.append(svgEl("text", { x: size / 2, y: size / 2 + 2, class: "ring-pct", "text-anchor": "middle", "dominant-baseline": "middle" }, Math.round(pct) + "%"));
+    return svg;
+  }
+
+  async function renderDrives() {
+    let drives;
+    try { drives = state.drives = await api("/api/drives"); } catch (e) { return [errorBox(e)]; }
+    const animate = !state.drivesAnimated && !reduceMotion();
+    state.drivesAnimated = true;
+    const local = drives.filter((d) => d.scanByDefault);
+    const TYPE = { fixed: "Internal drive", removable: "Removable drive", network: "Network drive", cloud: "Cloud drive", optical: "Optical drive", ram: "RAM disk", unknown: "Drive" };
+    const scanned = (d) => state.scans.find((s) => s.root.toLowerCase() === d.root.toLowerCase());
+    const card = (d) => {
+      const sc = scanned(d);
+      return h("article", { class: "drive" + (d.scanByDefault ? "" : " remote") },
+        ringSvg(d.usedPct, d.usedPct >= 90, 92, animate, d.root + " " + d.usedPct + "% used"),
+        h("div", { class: "drive-info" },
+          h("div", { class: "drive-name" }, h("span", { class: "drive-letter", text: d.letter + ":" }), h("span", { class: "drive-label", text: d.label || "No label" })),
+          h("div", { class: "drive-type" }, TYPE[d.type] || d.type, d.remotePath ? h("span", { class: "mono", text: "  " + d.remotePath }) : null),
+          h("div", { class: "drive-free" }, h("span", { class: "drive-free-num", text: fmtBytes(d.free) }), h("span", { class: "muted", text: " free of " + fmtBytes(d.size) })),
+          h("div", { class: "drive-used", text: fmtBytes(d.used) + " used" + (sc ? "  \u00B7  scanned " + sc.finishedAt.slice(11, 16) + " UTC" : d.scanByDefault ? "" : "  \u00B7  not scanned by default") })),
+        h("div", { class: "drive-actions" },
+          h("button", { class: "btn", type: "button", text: sc ? "Scan again" : "Scan " + d.letter + ":", onclick: () => startScan([d.root]) }),
+          sc ? h("button", { class: "btn link", type: "button", text: "View results", onclick: () => { setRoot(sc.root); go("overview"); } }) : null));
+    };
+    // the earlier drive table, kept as a detail (with multi-select)
+    const selected = new Set(local.map((d) => d.root));
+    const scanSel = h("button", { class: "btn", type: "button", text: "Scan selected", onclick: () => startScan(Array.from(selected)) });
+    const cols = [
+      { key: "sel", title: "", render: (d) => h("label", { class: "check" }, h("input", { type: "checkbox", "aria-label": "Select " + d.root, checked: selected.has(d.root), onchange: (ev) => { ev.target.checked ? selected.add(d.root) : selected.delete(d.root); scanSel.disabled = selected.size === 0; } })) },
+      { key: "drive", title: "Drive", cls: "name", render: (d) => d.root },
+      { key: "label", title: "Label", render: (d) => d.label || h("span", { class: "faint", text: "No label" }) },
+      { key: "type", title: "Type", render: (d) => d.type },
+      { key: "size", title: "Size", num: true, render: (d) => fmtBytes(d.size) },
+      { key: "used", title: "Used", num: true, render: (d) => fmtBytes(d.used) },
+      { key: "free", title: "Free", num: true, render: (d) => fmtBytes(d.free) },
+      { key: "pct", title: "Used %", num: true, render: (d) => d.usedPct.toFixed(1) + "%" },
+    ];
+    const folderInput = h("input", { class: "text mono folder-input", type: "text", placeholder: state.mode === "demo" ? "C:\\Users\\demo\\AppData" : "C:\\Users\\you\\AppData", "aria-label": "Folder to scan", spellcheck: "false" });
+    const folderErr = h("span", { class: "error", role: "alert" });
+    const scanFolder = () => { const p = folderInput.value.trim(); if (!/^[a-zA-Z]:[\\/]?/.test(p)) { folderErr.textContent = "Type a full path, for example C:\\Users"; return; } folderErr.textContent = ""; startScan([p]); };
+    folderInput.addEventListener("keydown", (ev) => { if (ev.key === "Enter") scanFolder(); });
+    const pending = [];
+    return [
+      h("section", { class: "intro" },
+        h("h1", { class: "display", text: "What got added, and what is it?" }),
+        h("p", { class: "lead", text: "Scan your drives to see what was created recently, what takes the space, and what is safe to clean up. DiskDelta only reads; it never deletes anything." }),
+        h("div", { class: "row" },
+          h("button", { class: "btn primary big", type: "button", disabled: local.length === 0, text: "Scan all local drives", onclick: () => startScan(local.map((d) => d.root)) }),
+          h("span", { class: "muted", text: local.map((d) => d.letter + ":").join("  ") + (drives.length > local.length ? "  (network and cloud drives only when you pick them)" : "") }))),
+      h("div", { class: "drive-grid" }, drives.map(card)),
+      h("section", { class: "block" }, h("div", { class: "block-head" }, h("h2", { text: "Scan one folder" })),
+        h("div", { class: "row" }, folderInput, h("button", { class: "btn", type: "button", text: "Scan folder", onclick: scanFolder }), folderErr)),
+      h("section", { class: "block details-block no-head" },
+        detailsItem("drivetable", "Drive table", drives.length + " drives, choose several to scan", async () => [h("div", { class: "row pad" }, scanSel), grid(cols, drives, { empty: "No drives found." })], pending)),
+    ];
+  }
+
+  async function startScan(targets) {
+    try {
+      const j = await post("/api/scan", { targets });
+      if (state.handledJobId === j.id) return;
+      if (!state.job || state.job.id !== j.id) state.job = j;
+      state.lastJobError = null;
+      render();
+    } catch (e) { alertBanner(e); }
+  }
+
+  // The progress screen is built once per target and then updated in place (keeps focus on Cancel, lets the bar animate).
+  let progressEls = null;
+  function renderProgress() {
+    const j = state.job;
+    const target = j.targets[j.index] || "";
+    const stat = (k) => { const v = h("div", { class: "v", text: "0" }); return [h("div", { class: "stat" }, h("div", { class: "k", text: k }), v), v]; };
+    const [sFiles, vFiles] = stat("Files"), [sFolders, vFolders] = stat("Folders"), [sBytes, vBytes] = stat("Size so far"), [sSkip, vSkip] = stat("Skipped"), [sTime, vTime] = stat("Elapsed"), [sPct, vPct] = stat("Of used space");
+    const fill = h("div");
+    const bar = h("div", { class: "progress", role: "progressbar", "aria-label": "Scan progress", "aria-valuemin": 0, "aria-valuemax": 100 }, fill);
+    const cur = h("div", { class: "current-path", text: "Starting" });
+    const title = h("h2", { text: "Scanning " + target });
+    const sub = h("span", { class: "sub", text: j.targets.length > 1 ? (j.index + 1) + " of " + j.targets.length : "" });
+    const cancel = h("button", { class: "btn", type: "button", text: "Cancel", onclick: () => { cancel.disabled = true; cancel.textContent = "Cancelling"; post("/api/cancel").catch(alertBanner); } });
+    const node = h("section", { class: "section", id: "progress-view" },
+      h("div", { class: "head" }, title, sub, h("div", { class: "right" }, cancel)),
+      h("div", { class: "body" }, h("div", { class: "stats" }, sFiles, sFolders, sBytes, sSkip, sTime, sPct), h("div", { class: "progress-wrap" }, bar), cur));
+    progressEls = { jobId: j.id, index: j.index, vFiles, vFolders, vBytes, vSkip, vTime, vPct, sPct, bar, fill, cur, target };
+    updateProgress(j);
+    return [node];
+  }
+  function updateProgress(j) {
+    const e = progressEls, p = j.progress;
+    const drive = state.drives.find((d) => d.root.toLowerCase() === e.target.toLowerCase());
+    const pct = p && drive && drive.used > 0 ? Math.min(99, (100 * p.bytes) / drive.used) : null;
+    e.vFiles.textContent = p ? fmtCount(p.files) : "0";
+    e.vFolders.textContent = p ? fmtCount(p.folders) : "0";
+    e.vBytes.textContent = p ? fmtBytes(p.bytes) : "0 bytes";
+    e.vSkip.textContent = p ? fmtCount(p.skipped) : "0";
+    e.vTime.textContent = p ? fmtDur(p.elapsedMs) : "0s";
+    e.sPct.classList.toggle("hidden", pct === null);
+    e.vPct.textContent = pct === null ? "" : Math.round(pct) + "%";
+    e.bar.classList.toggle("indeterminate", pct === null);
+    if (pct === null) { e.bar.removeAttribute("aria-valuenow"); e.fill.style.transform = ""; }
+    else { e.bar.setAttribute("aria-valuenow", String(Math.round(pct))); e.fill.style.transform = "scaleX(" + (pct / 100) + ")"; }
+    e.cur.textContent = p ? p.current : "Starting";
+    e.cur.title = p ? p.current : "";
+  }
+
+  // ---------- overview ----------
+  function insightCard(r) {
+    const title = plainName(r);
+    const line = whatLine(r, title);
+    return h("article", { class: "insight" },
+      h("div", { class: "insight-top" }, h("h3", { text: title }), chip(r)),
+      h("div", { class: "insight-num" }, h("span", { class: "plus", text: "+" + fmtBytes(r.newBytes) }), h("span", { class: "unit", text: " new" })),
+      r.changedBytes ? h("div", { class: "insight-sub", text: fmtBytes(r.changedBytes) + " of older files changed, growth unknown" }) : null,
+      line ? h("p", { class: "insight-what", text: line }) : null,
+      h("div", { class: "insight-path" }, pathNode(r.path)),
+      h("div", { class: "insight-action" }, reclaimNode(r, true)),
+      h("div", { class: "insight-foot" }, h("button", { class: "btn link", type: "button", text: "Open folder", onclick: () => { state.sizePath = r.path.replace(/\\[^\\]*\*$/, ""); openDetails("size"); } })));
+  }
+
+  function timelineChart(root, days, animate) {
+    const wrap = h("div", { class: "tl" });
+    const chartBox = h("div", { class: "tl-chart" });
+    const dayPanel = h("div", { class: "tl-day", "aria-live": "polite" });
+    wrap.append(chartBox, h("p", { class: "chart-note", text: "Only new files are counted. Older files that changed are not in this chart, because how much they grew is unknown." }), dayPanel);
+    cached("/api/timeline", { path: root, days }).then((tl) => {
+      const bars = tl.bars;
+      const max = Math.max(1, ...bars.map((b) => b.newBytes));
+      const barLabel = (b) => (b.age === 1 ? "Last 24 hours" : shortDate(b.start) + " to " + shortDate(b.end)) + ": " + fmtBytes(b.newBytes) + " in " + fmtCount(b.newFiles) + " new files";
+      const showDay = async (age) => {
+        if (!age) { dayPanel.replaceChildren(h("p", { class: "muted", text: "Select a bar to see which folders its new files went to." })); return; }
+        dayPanel.replaceChildren(h("p", { class: "muted", text: "Loading..." }));
+        try {
+          const d = await cached("/api/timeline-day", { path: root, age, limit: 8 });
+          const head = (age === 1 ? "Last 24 hours" : shortDate(d.start) + " to " + shortDate(d.end)) + ": " + fmtBytes(d.total.newBytes) + " in " + fmtCount(d.total.newFiles) + " new files";
+          dayPanel.replaceChildren(h("h3", { class: "day-head", text: head }),
+            d.rows.length ? h("ul", { class: "day-list" }, d.rows.map((r) => h("li", null,
+              h("span", { class: "day-size", text: fmtBytes(r.newBytes) }),
+              h("span", { class: "day-name" }, h("span", { class: "day-title", text: plainName(r) }), h("span", { class: "day-path" }, pathNode(r.path))),
+              chip(r),
+              h("button", { class: "btn link", type: "button", text: "Open", onclick: () => { state.sizePath = r.path.replace(/\\[^\\]*\*$/, ""); openDetails("size"); } })))) : h("p", { class: "muted", text: "No new files in this period." }));
+        } catch (e) { dayPanel.replaceChildren(errorBox(e)); }
+      };
+      const select = (age) => { state.tlAge = age; draw(false); showDay(age); };
+      const draw = (anim) => {
+        if (state.tlTable) {
+          chartBox.replaceChildren(grid([
+            { key: "when", title: "Period", render: (b) => (b.age === 1 ? "Last 24 hours" : shortDate(b.start) + " to " + shortDate(b.end)) },
+            { key: "bytes", title: "New files, size", num: true, render: (b) => (b.newBytes ? fmtBytes(b.newBytes) : h("span", { class: "faint", text: "-" })) },
+            { key: "files", title: "New files", num: true, render: (b) => fmtCount(b.newFiles) },
+          ], bars.slice().reverse(), { onOpen: (b) => select(b.age), empty: "No days." }));
+          return;
+        }
+        const W = Math.max(320, chartBox.clientWidth || 900), H = 230, padL = 64, padR = 8, padT = 12, padB = 28;
+        const iw = W - padL - padR, ih = H - padT - padB, n = bars.length, bw = iw / n, gap = Math.min(4, bw * 0.28);
+        const svg = svgEl("svg", { width: W, height: H, viewBox: "0 0 " + W + " " + H, class: "tl-svg" + (anim ? " draw" : ""), role: "group", "aria-label": "New files per day for the last " + days + " days. Arrow keys move between days, Enter shows which folders grew." });
+        for (const f of [0, 0.5, 1]) {
+          const y = padT + ih - ih * f;
+          svg.append(svgEl("line", { x1: padL, x2: W - padR, y1: y, y2: y, class: f === 0 ? "axis-line" : "grid-line" }));
+          svg.append(svgEl("text", { x: padL - 10, y: y + 4, class: "axis", "text-anchor": "end" }, f === 0 ? "0" : fmtBytes(max * f)));
+        }
+        const step = Math.max(1, Math.ceil(64 / bw));
+        const groups = [];
+        bars.forEach((b, i) => {
+          const x = padL + i * bw;
+          const bh = b.newBytes > 0 ? Math.max(2, (ih * b.newBytes) / max) : 0;
+          const g = svgEl("g", { class: "bar-g" + (b.age === state.tlAge ? " sel" : ""), tabindex: -1, role: "button", "aria-label": barLabel(b), "aria-pressed": String(b.age === state.tlAge) });
+          g.append(svgEl("rect", { x, y: padT, width: bw, height: ih, class: "bar-hit" }));
+          if (bh > 0) {
+            const bar = svgEl("rect", { x: x + gap / 2, y: padT + ih - bh, width: Math.max(1, bw - gap), height: bh, rx: Math.min(3, (bw - gap) / 2), class: "bar" });
+            bar.style.animationDelay = Math.round((i / n) * 100) + "ms";
+            g.append(bar);
+          }
+          g.addEventListener("mousemove", (ev) => showTip([barLabel(b)], ev.clientX, ev.clientY));
+          g.addEventListener("mouseleave", hideTip);
+          g.addEventListener("click", () => select(b.age));
+          g.addEventListener("focus", () => showTipAt(g, [barLabel(b)]));
+          g.addEventListener("blur", hideTip);
+          g.addEventListener("keydown", (ev) => {
+            let j = i;
+            if (ev.key === "ArrowRight") j = Math.min(n - 1, i + 1); else if (ev.key === "ArrowLeft") j = Math.max(0, i - 1);
+            else if (ev.key === "Home") j = 0; else if (ev.key === "End") j = n - 1;
+            else if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(b.age); setTimeout(() => chartBox.querySelectorAll(".bar-g")[i]?.focus(), 0); return; }
+            else return;
+            ev.preventDefault();
+            groups[i].tabIndex = -1; groups[j].tabIndex = 0; groups[j].focus();
+          });
+          if ((n - 1 - i) % step === 0) svg.append(svgEl("text", { x: x + bw / 2, y: H - 8, class: "axis", "text-anchor": "middle" }, b.age === 1 ? "24 h" : shortDate(b.end)));
+          groups.push(g);
+          svg.append(g);
+        });
+        const focusIdx = Math.max(0, bars.findIndex((b) => b.age === state.tlAge));
+        (groups[state.tlAge ? focusIdx : n - 1] || groups[0]).tabIndex = 0;
+        chartBox.replaceChildren(svg);
+      };
+      draw(animate);
+      showDay(state.tlAge);
+      let t = null;
+      new ResizeObserver(() => { clearTimeout(t); t = setTimeout(() => { if (!state.tlTable) draw(false); }, 80); }).observe(chartBox);
+    }).catch((e) => chartBox.replaceChildren(errorBox(e)));
+    return wrap;
+  }
+
+  function arcPath(cx, cy, r1, r2, a0, a1) {
+    if (a1 - a0 >= 2 * Math.PI - 1e-6) a1 = a0 + 2 * Math.PI - 1e-4;
+    const large = a1 - a0 > Math.PI ? 1 : 0;
+    const p = (r, a) => (cx + r * Math.sin(a)).toFixed(2) + " " + (cy - r * Math.cos(a)).toFixed(2);
+    return "M" + p(r2, a0) + "A" + r2 + " " + r2 + " 0 " + large + " 1 " + p(r2, a1) + "L" + p(r1, a1) + "A" + r1 + " " + r1 + " 0 " + large + " 0 " + p(r1, a0) + "Z";
+  }
+
+  function sunburst(root, animate) {
+    const wrap = h("div", { class: "sun" });
+    const chartBox = h("div", { class: "sun-chart" });
+    const panel = h("aside", { class: "sun-panel", "aria-live": "polite", "aria-label": "Selected folder" });
+    wrap.append(chartBox, panel);
+    let current = null;
+    const RINGS = 3, MIN_ANGLE = 0.02;
+    const load = (path, how) => cached("/api/treemap", { path, days: state.days, depth: RINGS, max: 40 })
+      .then((node) => { current = node; state.sunPath = node.path; draw(how); showPanel(node); })
+      .catch((e) => chartBox.replaceChildren(errorBox(e)));
+    const goUp = () => { if (!current || current.path.toLowerCase() === root.toLowerCase()) return; load(parentOf(current.path), "out"); };
+    const tipLines = (n, parentBytes) => [n.other ? n.name : n.name, fmtBytes(n.bytes) + (parentBytes ? "  \u00B7  " + ((100 * n.bytes) / parentBytes).toFixed(1) + "% of " + current.name : ""), n.other ? "Files and folders too small to draw" : "New in " + state.days + " days: " + fmtBytes(n.newBytes), n.other ? "" : COLOR_NAMES[colorKey(n)]].filter(Boolean);
+    const slices = (n) => {
+      // merge slices too thin to see into one "other" slice per parent
+      const kids = (n.children || []).filter((c) => c.bytes > 0);
+      const keep = [], small = { name: "Other and small items", path: n.path, bytes: 0, newBytes: 0, other: true };
+      const span = (c) => (c.bytes / n.bytes) * 2 * Math.PI;
+      for (const c of kids) (c.other || span(c) < MIN_ANGLE ? (small.bytes += c.bytes) : keep.push(c));
+      keep.sort((a, b) => b.bytes - a.bytes);
+      if (small.bytes > 0) keep.push(small);
+      return keep;
+    };
+    const draw = (how) => {
+      if (!current) return;
+      if (state.sunTable) {
+        const kids = (current.children || []).filter((c) => !c.other && c.bytes > 0);
+        chartBox.replaceChildren(
+          h("div", { class: "row pad" }, h("span", { class: "muted", text: current.path }), current.path.toLowerCase() !== root.toLowerCase() ? h("button", { class: "btn small", type: "button", text: "Up one level", onclick: goUp }) : null),
+          grid([
+            { key: "name", title: "Folder", cls: "name", render: (c) => c.name },
+            { key: "bytes", title: "Size", num: true, render: (c) => fmtBytes(c.bytes) },
+            { key: "share", title: "Share", num: true, render: (c) => ((100 * c.bytes) / current.bytes).toFixed(1) + "%" },
+            { key: "new", title: "New files", num: true, render: (c) => (c.newBytes ? fmtBytes(c.newBytes) : h("span", { class: "faint", text: "-" })) },
+            { key: "label", title: "Colour", render: (c) => h("span", { class: "sw-inline sw-" + colorKey(c), text: COLOR_NAMES[colorKey(c)] }) },
+          ], kids, { onOpen: (c) => load(c.path, "in"), empty: "No subfolders." }));
+        return;
+      }
+      const S = Math.max(260, Math.min(460, chartBox.clientWidth || 420));
+      const cx = S / 2, cy = S / 2, R = S / 2 - 4, r0 = R * 0.3, ringW = (R - r0) / RINGS;
+      const cls = "sun-svg" + (how === "draw" ? " draw" : how === "in" ? " drill-in" : how === "out" ? " drill-out" : "");
+      const svg = svgEl("svg", { width: S, height: S, viewBox: "0 0 " + S + " " + S, class: cls, role: "group", "aria-label": "Size of " + current.path + " by folder. Tab to the inner ring, arrow keys move, Enter opens a folder, Escape goes up." });
+      const inner = [];
+      const lay = (n, a0, a1, depth) => {
+        const total = n.bytes;
+        let a = a0;
+        for (const c of slices(n)) {
+          const b = a + ((a1 - a0) * c.bytes) / total;
+          const r1 = r0 + (depth - 1) * ringW + 1, r2 = r1 + ringW - 2;
+          const path = svgEl("path", { d: arcPath(cx, cy, r1, r2, a, b), class: "arc sw-" + colorKey(c) + " ring-" + depth });
+          const lines = tipLines(c, n.bytes);
+          path.addEventListener("mousemove", (ev) => showTip(lines, ev.clientX, ev.clientY));
+          path.addEventListener("mouseleave", hideTip);
+          if (!c.other) {
+            path.addEventListener("click", () => { hideTip(); load(c.path, "in"); });
+            if (depth === 1) {
+              path.setAttribute("tabindex", "-1");
+              path.setAttribute("role", "button");
+              path.setAttribute("aria-label", c.name + ", " + fmtBytes(c.bytes) + ", " + COLOR_NAMES[colorKey(c)]);
+              path.addEventListener("focus", () => showTipAt(path, lines));
+              path.addEventListener("blur", hideTip);
+              inner.push({ el: path, node: c });
+            }
+          } else path.classList.add("is-other");
+          svg.append(path);
+          if (depth < RINGS && !c.other && c.children && b - a > MIN_ANGLE) lay(c, a, b, depth + 1);
+          a = b;
+        }
+      };
+      lay(current, 0, 2 * Math.PI, 1);
+      const atRoot = current.path.toLowerCase() === root.toLowerCase();
+      const center = svgEl("g", { class: "sun-center" + (atRoot ? "" : " can-up"), role: atRoot ? null : "button", tabindex: atRoot ? null : 0, "aria-label": atRoot ? null : "Up to " + parentOf(current.path) });
+      center.append(svgEl("circle", { cx, cy, r: r0 - 3 }));
+      const name = current.name.length > 16 ? current.name.slice(0, 15) + "\u2026" : current.name;
+      center.append(svgEl("text", { x: cx, y: cy - 8, class: "c-name", "text-anchor": "middle" }, name));
+      center.append(svgEl("text", { x: cx, y: cy + 14, class: "c-size", "text-anchor": "middle" }, fmtBytes(current.bytes)));
+      if (!atRoot) {
+        center.append(svgEl("text", { x: cx, y: cy + 32, class: "c-up", "text-anchor": "middle" }, "Up"));
+        center.addEventListener("click", goUp);
+        center.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); goUp(); } });
+      }
+      svg.append(center);
+      inner.forEach((it, i) => {
+        it.el.addEventListener("keydown", (ev) => {
+          let j = i;
+          if (ev.key === "ArrowRight" || ev.key === "ArrowDown") j = (i + 1) % inner.length;
+          else if (ev.key === "ArrowLeft" || ev.key === "ArrowUp") j = (i - 1 + inner.length) % inner.length;
+          else if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); hideTip(); load(it.node.path, "in").then(() => chartBox.querySelector('[tabindex="0"]')?.focus()); return; }
+          else if (ev.key === "Escape" || ev.key === "Backspace") { ev.preventDefault(); hideTip(); goUp(); return; }
+          else return;
+          ev.preventDefault();
+          inner[i].el.setAttribute("tabindex", "-1"); inner[j].el.setAttribute("tabindex", "0"); inner[j].el.focus();
+        });
+      });
+      if (inner[0]) inner[0].el.setAttribute("tabindex", "0");
+      chartBox.replaceChildren(svg);
+    };
+    const showPanel = async (node) => {
+      panel.replaceChildren(h("p", { class: "muted", text: "Loading..." }));
+      let e;
+      try { e = await cached("/api/explain", { path: node.path, days: state.days }); } catch (err) { panel.replaceChildren(errorBox(err)); return; }
+      const c = e.classification, s = e.size;
+      const atRoot = node.path.toLowerCase() === root.toLowerCase();
+      panel.replaceChildren(
+        h("div", { class: "panel-kicker", text: atRoot ? "Whole scan" : "Selected folder" }),
+        h("h3", { class: "panel-title", text: node.name }),
+        h("div", { class: "panel-path" }, pathNode(node.path)),
+        h("div", { class: "panel-size", text: fmtBytes(node.bytes) }),
+        s ? h("dl", { class: "panel-facts" },
+          h("dt", { text: "New in " + state.days + " days" }), h("dd", { class: "tnum", text: fmtBytes(s.newBytes) + " (" + fmtCount(s.newFiles) + " files)" }),
+          h("dt", { class: "secondary", text: "Older files changed" }), h("dd", { class: "tnum secondary", text: fmtBytes(s.changedBytes) + ", growth unknown" }),
+          h("dt", { text: "Files" }), h("dd", { class: "tnum", text: fmtCount(s.files) })) : null,
+        h("div", { class: "panel-label" }, chip(c), c.category === "personal" ? h("span", { class: "tag", text: "personal folder" }) : null, c.owner && !c.known ? h("span", { class: "muted", text: " probably " + c.owner }) : null),
+        h("p", { class: "panel-what", text: c.what }),
+        h("div", { class: "panel-reclaim" }, h("div", { class: "panel-kicker", text: "How to reclaim" }), reclaimNode(c, false)),
+        h("div", { class: "row" },
+          atRoot ? null : h("button", { class: "btn small", type: "button", text: "Up one level", onclick: goUp }),
+          h("button", { class: "btn small", type: "button", text: "Open in Size details", onclick: () => { state.sizePath = node.path; openDetails("size"); } })));
+    };
+    const start = state.sunPath && within(state.sunPath, root) ? state.sunPath : root;
+    load(start, animate ? "draw" : null);
+    let t = null;
+    new ResizeObserver(() => { clearTimeout(t); t = setTimeout(() => { if (!state.sunTable) draw(null); }, 80); }).observe(chartBox);
+    return wrap;
+  }
+
+  function detailsItem(key, title, sub, fn, pending) {
+    const body = h("div", { class: "exp-body" });
+    const d = h("details", { class: "exp", id: "details-" + key }, h("summary", null, h("span", { class: "exp-title", text: title }), h("span", { class: "exp-sub", text: sub })), body);
+    const fill = async () => {
+      body.dataset.filled = "1";
+      body.replaceChildren(h("p", { class: "muted pad", text: "Loading..." }));
+      const ns = await fn();
+      body.replaceChildren(...ns.filter(Boolean));
+    };
+    if (state.open.has(key)) { d.open = true; pending.push(fill()); }
+    d.addEventListener("toggle", () => {
+      if (d.open) { state.open.add(key); if (!body.dataset.filled) fill(); }
+      else state.open.delete(key);
+    });
+    return d;
+  }
+
+  async function renderOverview() {
+    const root = state.root, days = state.days;
+    let g;
+    try { g = await cached("/api/grew", { path: root, days, limit: 60 }); } catch (e) { return [errorBox(e)]; }
+    const scan = state.scans.find((s) => s.root === root);
+    const animKey = root + "|" + days + "|" + state.scanSeq;
+    const animate = state.animKey !== animKey && !reduceMotion();
+    state.animKey = animKey;
+    const t = g.total;
+    const top = g.rows.filter((r) => r.newBytes > 0).slice(0, 3);
+    const pending = [];
+    const skippedSub = scan ? fmtCount(scan.skipped) + " folders and files could not be read" : "";
+    const nodes = [
+      h("section", { class: "hero" },
+        h("p", { class: "hero-line" }, t.newBytes > 0
+          ? [h("span", { class: "hero-where", text: root }), " grew ", h("span", { class: "hero-num", text: fmtBytes(t.newBytes) }), " in the last " + days + " days"]
+          : ["No new files on ", h("span", { class: "hero-where", text: root }), " in the last " + days + " days"]),
+        h("p", { class: "hero-sub", text: fmtCount(t.newFiles) + " new files. Separately, " + fmtCount(t.changedFiles) + " older files (" + fmtBytes(t.changedBytes) + ") were changed; how much they grew is unknown." }),
+        scan ? h("p", { class: "hero-meta", text: "Scanned " + scan.finishedAt.slice(0, 16).replace("T", " ") + " UTC  \u00B7  " + fmtBytes(scan.bytes) + " in " + fmtCount(scan.files) + " files  \u00B7  " + skippedSub }) : null),
+      h("section", { class: "block" },
+        h("div", { class: "block-head" }, h("h2", { text: "Biggest growth" }), h("button", { class: "btn link", type: "button", text: "See all " + g.rows.length + " places", onclick: () => openDetails("growth") })),
+        top.length ? h("div", { class: "cards" }, top.map(insightCard)) : h("p", { class: "muted", text: "Nothing new in this window." })),
+      h("section", { class: "block" },
+        h("div", { class: "block-head" }, h("h2", { text: "New files per day" }), h("span", { class: "block-sub", text: "last " + days + " days" }), h("div", { class: "right" }, viewToggle("tlTable", "New files per day"))),
+        timelineChart(root, days, animate)),
+      h("section", { class: "block" },
+        h("div", { class: "block-head" }, h("h2", { text: "What takes the space" }), h("div", { class: "right" }, legend(["safe", "check_first", "do_not_touch", "unknown", "personal", "container", "other"]), viewToggle("sunTable", "What takes the space"))),
+        sunburst(root, animate)),
+      h("section", { class: "block details-block" },
+        h("div", { class: "block-head" }, h("h2", { text: "Details" })),
+        detailsItem("growth", "Recent growth", g.rows.length + " places, ranked by new files", renderGrowthDetails, pending),
+        detailsItem("changed", "Older files changed", "growth amount unknown", renderChangedDetails, pending),
+        detailsItem("size", "Size and folders", state.sizePath && within(state.sizePath, root) ? state.sizePath : root, renderSize, pending),
+        detailsItem("cleanup", "Cleanup candidates", "ranked proposals, nothing is deleted", renderCleanup, pending),
+        detailsItem("skipped", "Skipped", skippedSub, renderSkipped, pending)),
+    ];
+    await Promise.all(pending);
+    return nodes;
+  }
+
+  // ---------- details: the earlier full tables ----------
+  const scopeTag = (r) => r.scope === "own" ? "files directly in this folder" : r.scope === "rest" ? "smaller subfolders together" : r.scope === "group" ? r.groupCount + " folders with this name" : null;
+  async function renderGrowthDetails() {
+    let g;
+    try { g = await cached("/api/grew", { path: state.root, days: state.days, limit: 60 }); } catch (e) { return [errorBox(e)]; }
+    const cols = [
+      { key: "path", title: "Folder", cls: "path", render: (r) => h("span", null, pathNode(r.path), scopeTag(r) ? h("span", { class: "tag", text: scopeTag(r) }) : null), sort: (r) => r.path.toLowerCase() },
+      { key: "newBytes", title: "New files", num: true, render: (r) => r.newBytes ? fmtBytes(r.newBytes) : h("span", { class: "faint", text: "-" }), sort: (r) => r.newBytes },
+      { key: "changedBytes", title: "Older files changed, growth unknown", num: true, cls: "secondary", render: (r) => r.changedBytes ? fmtBytes(r.changedBytes) : h("span", { class: "faint", text: "-" }), sort: (r) => r.changedBytes },
+      { key: "label", title: "Label", render: chip, sort: (r) => labelKey(r) },
+      { key: "what", title: "What it is", cls: "what", render: (r) => r.what },
+    ];
+    const ss = state.growthSort || (state.growthSort = { key: "newBytes", dir: "desc" });
+    return [
+      h("p", { class: "exp-note", text: "New files are files created since " + day(g.windowStart) + ". Older files modified in that time are a separate figure: their full size is known, how much they grew is not. Rows do not overlap; select a row to open the folder." }),
+      grid(cols, g.rows, {
+        sort: ss, onSort: (k) => { state.growthSort = { key: k, dir: ss.key === k && ss.dir === "desc" ? "asc" : "desc" }; render(); },
+        onOpen: (r) => { state.sizePath = r.path.replace(/\\[^\\]*\*$/, ""); openDetails("size"); },
+        empty: "Nothing was created or changed in the last " + state.days + " days.",
+      }),
+    ];
+  }
+  async function renderChangedDetails() {
+    let ch;
+    try { ch = await cached("/api/changed", { path: state.root, days: state.days, limit: 50 }); } catch (e) { return [errorBox(e)]; }
+    const fcols = [
+      { key: "path", title: "File", cls: "path", render: (f) => pathNode(f.path), sort: (f) => f.path.toLowerCase() },
+      { key: "size", title: "Size now", num: true, render: (f) => fmtBytes(f.size), sort: (f) => f.size },
+      { key: "created", title: "Created", num: true, render: (f) => day(f.created), sort: (f) => f.created || "" },
+      { key: "modified", title: "Modified", num: true, render: (f) => day(f.modified), sort: (f) => f.modified },
+    ];
+    const fsort = state.changedSort || (state.changedSort = { key: "size", dir: "desc" });
+    return [
+      h("p", { class: "exp-note", text: "Files of " + fmtBytes(ch.minBytes) + " or more that existed before the window and were modified inside it. Their full size is shown; how much they grew cannot be known from file dates." }),
+      grid(fcols, ch.files, { sort: fsort, onSort: (k) => { state.changedSort = { key: k, dir: fsort.key === k && fsort.dir === "desc" ? "asc" : "desc" }; render(); }, empty: "No large older files were changed in this window." }),
+    ];
+  }
+
+  // ---------- size view ----------
+  function crumbs(path, scanRoot) {
+    const parts = [];
+    let p = path;
+    while (p && p.length >= scanRoot.length) {
+      parts.unshift(p);
+      if (p.toLowerCase() === scanRoot.toLowerCase()) break;
+      const i = p.lastIndexOf("\\");
+      p = i <= 2 ? p.slice(0, 3) : p.slice(0, i);
+      if (parts.includes(p)) break;
+    }
+    const nav = h("nav", { class: "crumbs", "aria-label": "Folder path" });
+    parts.forEach((q, i) => {
+      const name = i === 0 ? q : q.slice(q.lastIndexOf("\\") + 1);
+      if (i > 0) nav.append(h("span", { class: "sep", "aria-hidden": "true", text: "\u203A" }));
+      if (i === parts.length - 1) nav.append(h("span", { class: "cur", "aria-current": "page", text: name }));
+      else nav.append(h("button", { type: "button", text: name, onclick: () => { state.sizePath = q; render(); } }));
+    });
+    return nav;
+  }
+
+  function squarify(items, x, y, w, hgt) {
+    const out = [];
+    const total = items.reduce((s, it) => s + it.value, 0);
+    if (total <= 0 || w <= 0 || hgt <= 0) return out;
+    const scale = (w * hgt) / total;
+    const list = items.map((it) => ({ it, area: it.value * scale }));
+    let rx = x, ry = y, rw = w, rh = hgt;
+    let row = [];
+    const worst = (r, side) => {
+      const s = r.reduce((a, b) => a + b.area, 0);
+      const mx = Math.max(...r.map((q) => q.area)), mn = Math.min(...r.map((q) => q.area));
+      return Math.max((side * side * mx) / (s * s), (s * s) / (side * side * mn));
+    };
+    const layout = (r) => {
+      const s = r.reduce((a, b) => a + b.area, 0);
+      if (rw >= rh) {
+        const cw = s / rh; let cy = ry;
+        for (const q of r) { const ch = q.area / cw; out.push({ it: q.it, x: rx, y: cy, w: cw, h: ch }); cy += ch; }
+        rx += cw; rw -= cw;
+      } else {
+        const chh = s / rw; let cx = rx;
+        for (const q of r) { const cww = q.area / chh; out.push({ it: q.it, x: cx, y: ry, w: cww, h: chh }); cx += cww; }
+        ry += chh; rh -= chh;
+      }
+    };
+    for (const q of list) {
+      const side = Math.min(rw, rh);
+      if (row.length === 0 || worst(row.concat(q), side) <= worst(row, side)) row.push(q);
+      else { layout(row); row = [q]; }
+    }
+    if (row.length) layout(row);
+    return out;
+  }
+
+  function treemap(node, info) {
+    const box = h("div", { class: "treemap", role: "group", "aria-label": "Map of " + node.path + ". Tab moves between folders, Enter opens one." });
+    const describe = (n) => {
+      info.replaceChildren(
+        h("span", null, h("b", { text: n.other ? n.name : n.path })),
+        h("span", { class: "num", text: "Size " + fmtBytes(n.bytes) }),
+        h("span", { class: "num", text: "New in " + state.days + " days: " + fmtBytes(n.newBytes) }),
+        n.changedBytes ? h("span", { class: "num faint", text: "Older files changed: " + fmtBytes(n.changedBytes) + " (growth unknown)" }) : null,
+        n.other ? null : chip(n));
+    };
+    const HEADER = 18;
+    // Draws one tile and, when there is room, its children inside it (up to the depth the API returned).
+    const drawTile = (parentEl, n, r, level) => {
+      const heat = state.colorBy === "growth";
+      const cls = "tile " + (n.other ? "other" : heat ? "heat" : labelKey(n));
+      const tile = h("div", { class: cls });
+      if (level === 1 && !n.other) {
+        tile.tabIndex = 0;
+        tile.setAttribute("role", "button");
+        tile.setAttribute("aria-label", n.name + ", " + fmtBytes(n.bytes) + ", " + LABELS[labelKey(n)]);
+      }
+      tile.style.left = r.x + "px"; tile.style.top = r.y + "px";
+      tile.style.width = Math.max(0, r.w) + "px"; tile.style.height = Math.max(0, r.h) + "px";
+      if (heat && !n.other) {
+        const share = n.bytes > 0 ? Math.min(1, n.newBytes / n.bytes) : 0;
+        const fill = h("div", { class: "heatfill" });
+        fill.style.opacity = String(share > 0 ? 0.12 + 0.68 * share : 0);
+        tile.append(fill);
+      }
+      const roomForName = r.w > 48 && r.h > 17;
+      if (roomForName) tile.append(h("div", { class: "t" }, n.name, r.w > 120 ? h("span", { class: "s", text: fmtBytes(n.bytes) }) : null));
+      const kids = !n.other && n.children ? n.children.filter((c) => c.bytes > 0) : [];
+      if (kids.length && r.w > 36 && r.h > HEADER + 14) {
+        const top = roomForName ? HEADER : 2;
+        const rects = squarify(kids.map((c) => ({ value: c.bytes, node: c })), 2, top, r.w - 6, r.h - top - 4);
+        for (const q of rects) if (q.w >= 2 && q.h >= 2) drawTile(tile, q.it.node, q, level + 1);
+      }
+      if (!n.other) {
+        tile.addEventListener("click", (ev) => { ev.stopPropagation(); state.sizePath = n.path; render(); });
+        tile.addEventListener("mouseover", (ev) => { ev.stopPropagation(); setHover(tile); describe(n); });
+        if (level === 1) {
+          tile.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); state.sizePath = n.path; render(); } });
+          tile.addEventListener("focus", () => describe(n));
+        }
+      } else tile.addEventListener("mouseover", (ev) => { ev.stopPropagation(); setHover(tile); describe(n); });
+      parentEl.append(tile);
+    };
+    const draw = () => {
+      box.replaceChildren();
+      const W = box.clientWidth, H = box.clientHeight;
+      const kids = (node.children || []).filter((c) => c.bytes > 0);
+      const rects = squarify(kids.map((c) => ({ value: c.bytes, node: c })), 0, 0, W, H);
+      for (const r of rects) drawTile(box, r.it.node, r, 1);
+      if (!rects.length) box.append(h("div", { class: "empty", text: "No subfolders to draw." }));
+    };
+    box.addEventListener("mouseleave", () => { setHover(null); describe(node); });
+    requestAnimationFrame(draw);
+    let t = null;
+    new ResizeObserver(() => { clearTimeout(t); t = setTimeout(draw, 60); }).observe(box);
+    describe(node);
+    return box;
+  }
+
+  async function renderSize() {
+    const path = state.sizePath || state.root;
+    let f, tm;
+    try {
+      [f, tm] = await Promise.all([cached("/api/folder", { path, days: state.days, limit: 1000 }), cached("/api/treemap", { path, days: state.days, depth: 3, max: 40 })]);
+    } catch (e) { state.sizePath = state.root; return [errorBox(e)]; }
+    const s = f.self;
+    const up = f.path.toLowerCase() !== f.scanRoot.toLowerCase() ? h("button", { class: "btn small", type: "button", text: "Up one level", onclick: () => { state.sizePath = f.parent; render(); } }) : null;
+    const info = h("div", { class: "tm-info", "aria-live": "polite" });
+    const colorSeg = h("div", { class: "seg", role: "group", "aria-label": "Colour tiles by" },
+      h("button", { type: "button", "aria-pressed": String(state.colorBy === "label"), text: "Label", onclick: () => { state.colorBy = "label"; render(); } }),
+      h("button", { type: "button", "aria-pressed": String(state.colorBy === "growth"), text: "Recent growth", onclick: () => { state.colorBy = "growth"; render(); } }));
+    const legend = state.colorBy === "label"
+      ? h("div", { class: "legend" }, h("span", { class: "safe", text: "Safe to remove" }), h("span", { class: "check_first", text: "Check first" }), h("span", { class: "do_not_touch", text: "Do not touch" }), h("span", { class: "unknown", text: "Unknown" }))
+      : h("div", { class: "legend" }, h("span", { class: "heat0", text: "No new files" }), h("span", { class: "heat1", text: "All files new in the last " + state.days + " days" }));
+    const ss = state.sizeSort;
+    const cols = [
+      { key: "name", title: "Name", cls: "name", render: (r) => r.name, sort: (r) => r.name.toLowerCase() },
+      { key: "bytes", title: "Size", num: true, render: (r) => fmtBytes(r.bytes), sort: (r) => r.bytes },
+      { key: "share", title: "Share", num: true, render: (r) => s.bytes > 0 ? ((100 * r.bytes) / s.bytes).toFixed(1) + "%" : "-", sort: (r) => r.bytes },
+      { key: "newBytes", title: "New", num: true, render: (r) => r.newBytes ? fmtBytes(r.newBytes) : h("span", { class: "faint", text: "-" }), sort: (r) => r.newBytes },
+      { key: "changedBytes", title: "Changed", num: true, render: (r) => r.changedBytes ? fmtBytes(r.changedBytes) : h("span", { class: "faint", text: "-" }), sort: (r) => r.changedBytes },
+      { key: "files", title: "Files", num: true, render: (r) => fmtCount(r.files), sort: (r) => r.files },
+      { key: "label", title: "Label", render: chip, sort: (r) => labelKey(r) },
+      { key: "what", title: "What it is", cls: "what", render: (r) => r.what },
+    ];
+    const table = grid(cols, f.children, {
+      sort: ss, onSort: (k) => { state.sizeSort = { key: k, dir: ss.key === k && ss.dir === "desc" ? "asc" : "desc" }; render(); },
+      onOpen: (r) => { state.sizePath = r.path; render(); }, canOpen: (r) => r.folders > 0 || r.files > 0, empty: "No subfolders.",
+    });
+    const files = new Map();
+    for (const x of f.largeFiles) files.set(x.path, Object.assign({}, x));
+    for (const x of f.recentFiles) files.set(x.path, Object.assign(files.get(x.path) || {}, x));
+    const fileRows = Array.from(files.values());
+    const fcols = [
+      { key: "name", title: "File", cls: "name", render: (x) => x.name, sort: (x) => x.name.toLowerCase() },
+      { key: "size", title: "Size", num: true, render: (x) => fmtBytes(x.size), sort: (x) => x.size },
+      { key: "created", title: "Created", num: true, render: (x) => day(x.created), sort: (x) => x.created || "" },
+      { key: "modified", title: "Modified", num: true, render: (x) => day(x.modified), sort: (x) => x.modified },
+      { key: "kind", title: "In window", render: (x) => x.kind === "new" ? h("span", { class: "kind new", text: "New" }) : x.kind === "changed" ? h("span", { class: "kind", text: "Changed, growth unknown" }) : h("span", { class: "faint", text: "-" }), sort: (x) => x.kind || "" },
+    ];
+    const fsort = state.fileSort || (state.fileSort = { key: "size", dir: "desc" });
+    const ownLine = f.own.files > 0 ? fmtCount(f.own.files) + " files directly in this folder, " + fmtBytes(f.own.bytes) : "No files directly in this folder";
+    return [
+      f.path.toLowerCase() !== f.scanRoot.toLowerCase() ? h("div", { class: "row crumb-row" }, crumbs(f.path, f.scanRoot), up) : null,
+      h("h3", { class: "sub-title", text: f.name }),
+      f.name !== f.path ? h("p", { class: "lead mono-lead" }, pathNode(f.path)) : null,
+      section("This folder", null, chip(s),
+        h("div", { class: "body" },
+          h("dl", { class: "explain" },
+            h("dt", { text: "Size" }), h("dd", { class: "tnum", text: fmtBytes(s.bytes) + "  (" + fmtCount(s.files) + " files, " + fmtCount(s.folders) + " folders)" }),
+            h("dt", { text: "Last " + state.days + " days" }), h("dd", { text: "New " + fmtBytes(s.newBytes) + ", older files changed " + fmtBytes(s.changedBytes) + " (growth unknown)" }),
+            h("dt", { text: "What it is" }), h("dd", { text: s.what }),
+            s.owner ? h("dt", { text: "Probably belongs to" }) : null, s.owner ? h("dd", { text: s.owner }) : null,
+            h("dt", { text: "How to reclaim" }), h("dd", { text: s.reclaim }),
+            s.notes ? h("dt", { text: "Notes" }) : null, s.notes ? h("dd", { text: s.notes }) : null))),
+      section("Map", null, h("div", { class: "row" }, legend, colorSeg), h("div", { class: "body" }, treemap(tm, info), info)),
+      section("Folders", f.children.length + " folders  \u00B7  " + ownLine, null, table),
+      section("Files", "new files and changed older files of " + fmtBytes(f.fileFloorBytes) + " or more, and files of " + fmtBytes(f.largeFileBytes) + " or more", null,
+        grid(fcols, fileRows, { sort: fsort, onSort: (k) => { state.fileSort = { key: k, dir: fsort.key === k && fsort.dir === "desc" ? "asc" : "desc" }; render(); }, empty: "No large or recent files directly in this folder." })),
+    ];
+  }
+
+  // ---------- cleanup view ----------
+  async function renderCleanup() {
+    let p;
+    try { p = await cached("/api/cleanup", { path: state.root, days: state.days, limit: 100 }); } catch (e) { return [errorBox(e)]; }
+    const rank = new Map(p.candidates.map((c, i) => [c, i + 1]));
+    const cols = [
+      { key: "rank", title: "#", num: true, render: (r) => rank.get(r), sort: (r) => rank.get(r) },
+      { key: "path", title: "Folder", cls: "path", render: (r) => h("span", null, pathNode(r.path), r.groupCount ? h("span", { class: "tag", text: r.groupCount + " folders" }) : null, r.scope === "rest" ? h("span", { class: "tag", text: "the rest" }) : null), sort: (r) => r.path.toLowerCase() },
+      { key: "bytes", title: "Size", num: true, render: (r) => fmtBytes(r.bytes), sort: (r) => r.bytes },
+      { key: "newBytes", title: "New files", num: true, render: (r) => r.newBytes ? fmtBytes(r.newBytes) : h("span", { class: "faint", text: "-" }), sort: (r) => r.newBytes },
+      { key: "label", title: "Label", render: chip, sort: (r) => (r.known === false ? 2 : r.label === "safe" ? 0 : 1) },
+      { key: "reclaim", title: "How to reclaim", cls: "wrap what", render: (r) => reclaimNode(r, false) },
+    ];
+    const cs = state.cleanSort || (state.cleanSort = { key: "rank", dir: "asc" });
+    const safeBytes = p.candidates.filter((c) => c.known && c.label === "safe").reduce((a, c) => a + c.bytes, 0);
+    const checkBytes = p.candidates.filter((c) => c.known && c.label === "check_first").reduce((a, c) => a + c.bytes, 0);
+    const stat = (k, v) => h("div", { class: "stat" }, h("div", { class: "k", text: k }), h("div", { class: "v", text: v }));
+    return [
+      h("p", { class: "exp-note", text: "Ranked proposals: safe items first, then items to check, then large folders DiskDelta does not know. Nothing here is deleted by DiskDelta; use each item's own way to reclaim the space. Select a row to open the folder." }),
+      section("Summary", null, null, h("div", { class: "body" }, h("div", { class: "stats" }, stat("Safe to remove", fmtBytes(safeBytes)), stat("Check first", fmtBytes(checkBytes)), stat("Candidates", fmtCount(p.candidates.length))))),
+      section("Candidates", null, null, grid(cols, p.candidates, {
+        sort: cs, onSort: (k) => { state.cleanSort = { key: k, dir: cs.key === k && cs.dir === "asc" ? "desc" : "asc" }; render(); },
+        onOpen: (r) => { state.sizePath = r.path.replace(/\\[^\\]*\*$/, ""); openDetails("size"); }, empty: "No candidates found.",
+      }), h("div", { class: "foot", text: p.note })),
+    ];
+  }
+
+  // ---------- skipped view ----------
+  async function renderSkipped() {
+    let s;
+    try { s = await cached("/api/skipped", { limit: 2000 }); } catch (e) { return [errorBox(e)]; }
+    const reasons = { access_denied: "Access denied", path_too_long: "Path too long", in_use: "In use", not_found: "Gone during the scan", error: "Other error" };
+    const cols = [
+      { key: "path", title: "Path", cls: "path", render: (r) => pathNode(r.path), sort: (r) => r.path.toLowerCase() },
+      { key: "kind", title: "Kind", render: (r) => r.kind, sort: (r) => r.kind },
+      { key: "reason", title: "Reason", render: (r) => reasons[r.reason] || r.reason, sort: (r) => r.reason },
+      { key: "detail", title: "Detail", cls: "faint", render: (r) => r.detail || "" },
+    ];
+    const ks = state.skipSort || (state.skipSort = { key: "path", dir: "asc" });
+    const summary = Object.entries(s.byReason).map(([k, v]) => (reasons[k] || k) + ": " + fmtCount(v)).join("   ");
+    return [
+      h("p", { class: "exp-note", text: "Folders and files DiskDelta could not read. Their sizes are not in the totals. Most are system folders that need admin rights; DiskDelta never asks for them." }),
+      section("Could not be read", fmtCount(s.total) + " items" + (summary ? "  \u00B7  " + summary : ""), null,
+        grid(cols, s.items, { sort: ks, onSort: (k) => { state.skipSort = { key: k, dir: ks.key === k && ks.dir === "asc" ? "desc" : "asc" }; render(); }, empty: "Nothing was skipped." })),
+    ];
+  }
+
+  // ---------- render ----------
+  let renderSeq = 0;
+  async function render() {
+    const seq = ++renderSeq;
+    setTabs();
+    const running = state.job && state.job.state === "running";
+    let nodes;
+    if (running) nodes = renderProgress();
+    else if (state.view === "overview" && state.root) nodes = await renderOverview();
+    else nodes = await renderDrives();
+    if (seq !== renderSeq) return;
+    const banners = [];
+    if (state.stopped) banners.push(h("div", { class: "note stopped", role: "alert", text: "DiskDelta has stopped. Start it again to continue; this page no longer updates." }));
+    if (STATIC) banners.push(h("div", { class: "note", text: "Browser demo: DiskDelta running on a fictional PC with invented folders and files, entirely in this page. Nothing is read from your computer. To scan your own drives, get DiskDelta from northkeellabs.com/diskdelta." }));
+    else if (state.mode === "demo") banners.push(h("div", { class: "note", text: "Demo mode: a fictional PC with invented folders and files. Nothing on your own drives is read." }));
+    if (state.lastJobError) banners.push(h("div", { class: "note stopped", role: "alert", text: state.lastJobError }));
+    const y = window.scrollY;
+    view.replaceChildren(...banners, ...nodes.filter(Boolean));
+    if (!running) window.scrollTo(0, Math.min(y, document.body.scrollHeight));
+  }
+  function alertBanner(e) { state.lastJobError = String(e && e.message || e); render(); }
+
+  // ---------- live updates ----------
+  let lastProgressRender = 0;
+  function onJob(job, isProgress) {
+    if (!job) return;
+    if (job.id === state.handledJobId) return;
+    state.job = job;
+    const showing = progressEls && document.getElementById("progress-view") && progressEls.jobId === job.id && progressEls.index === job.index;
+    if (isProgress) {
+      const now = Date.now();
+      if (now - lastProgressRender < 250) return;
+      lastProgressRender = now;
+      if (showing) updateProgress(job); else render();
+      return;
+    }
+    if (job.state === "running") { state.lastJobError = null; if (!showing) render(); return; }
+    state.handledJobId = job.id;
+    refreshAfterScan(job);
+  }
+  async function refreshAfterScan(job) {
+    const st = await api("/api/state");
+    state.scans = st.scans;
+    state.job = job;
+    if (job.state === "error") state.lastJobError = "Scan failed: " + job.error;
+    const found = state.scans.find((s) => s.root.toLowerCase() === (job.targets[0] || "").toLowerCase()) || state.scans[state.scans.length - 1];
+    cache.clear();
+    state.scanSeq++;
+    if (found) { setRoot(found.root); if (job.state === "done") state.view = "overview"; }
+    if (job.state === "done" && !hashUsed) {
+      hashUsed = true;
+      if (hashParams.view) state.view = hashParams.view;
+      if (hashParams.open) hashParams.open.split(",").forEach((k) => state.open.add(k));
+      if (hashParams.path) state.sizePath = hashParams.path;
+      if (hashParams.sun) state.sunPath = hashParams.sun;
+      if (hashParams.color) state.colorBy = hashParams.color;
+      if (hashParams.tltable) state.tlTable = true;
+      if (hashParams.suntable) state.sunTable = true;
+      if (hashParams.days) setDays(Number(hashParams.days));
+      if (hashParams.tl) {
+        const tl = await cached("/api/timeline", { path: state.root, days: state.days });
+        state.tlAge = hashParams.tl === "max" ? [...tl.bars].sort((a, b) => b.newBytes - a.newBytes)[0].age : Number(hashParams.tl);
+      }
+    }
+    await render();
+    if (job.state === "done" && hashParams.open && hashParams.scrollto) document.getElementById("details-" + hashParams.scrollto)?.scrollIntoView({ block: "start" });
+    if (job.state === "done" && hashParams.export) document.getElementById("export-btn").click();
+  }
+
+  function connectEvents() {
+    if (STATIC) { STATIC.onEvent((e) => onJob(e.job, e.type === "progress")); return; }
+    const es = new EventSource("/api/events?t=" + encodeURIComponent(TOKEN));
+    es.addEventListener("job", (ev) => onJob(JSON.parse(ev.data), false));
+    es.addEventListener("progress", (ev) => onJob(JSON.parse(ev.data), true));
+  }
+
+  let hbFails = 0;
+  if (!STATIC) setInterval(() => {
+    if (state.stopped) return;
+    post("/api/heartbeat").then(() => (hbFails = 0), () => { if (++hbFails >= 2) { state.stopped = true; render(); } });
+  }, 15000);
+  if (!STATIC) post("/api/heartbeat").catch(() => {});
+  if (!STATIC) window.addEventListener("pagehide", () => { navigator.sendBeacon("/api/bye?t=" + encodeURIComponent(TOKEN)); });
+
+  // ---------- export ----------
+  const dlg = document.getElementById("export-dialog");
+  const fmtSeg = Array.from(document.querySelectorAll("#fmt-seg button"));
+  const pathIn = document.getElementById("export-path");
+  const msg = document.getElementById("export-msg");
+  function setFmt(f) {
+    state.fmt = f;
+    fmtSeg.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.fmt === f)));
+    const cur = pathIn.value.trim();
+    if (!cur || cur === state.exportSuggestion.md || cur === state.exportSuggestion.html) pathIn.value = state.exportSuggestion[f];
+    else pathIn.value = cur.replace(/\.(md|html)$/i, "." + f);
+  }
+  fmtSeg.forEach((b) => b.addEventListener("click", () => setFmt(b.dataset.fmt)));
+  document.getElementById("export-btn").addEventListener("click", () => { msg.replaceChildren(); setFmt(state.fmt); dlg.showModal(); pathIn.focus(); pathIn.select(); });
+  document.getElementById("export-cancel").addEventListener("click", () => dlg.close());
+  document.getElementById("export-save").addEventListener("click", async () => {
+    msg.replaceChildren(h("span", { class: "muted", text: "Saving..." }));
+    if (STATIC) {
+      // browser demo: build the report in the page and hand it to the browser as a download
+      try {
+        const text = await api("/api/report", { format: state.fmt, days: state.days });
+        const name = (pathIn.value.trim().split(/[\\/]/).pop() || ("diskdelta-report." + state.fmt)).replace(/[^\w.-]/g, "_");
+        const a = h("a", { download: name });
+        a.href = URL.createObjectURL(new Blob([text], { type: state.fmt === "html" ? "text/html" : "text/markdown" }));
+        document.body.append(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        msg.replaceChildren(h("span", { class: "okmsg", text: "Downloaded " + name + "." }));
+      } catch (e) { msg.replaceChildren(h("span", { class: "error", text: e.message })); }
+      return;
+    }
+    try {
+      const r = await post("/api/export", { format: state.fmt, path: pathIn.value.trim(), days: state.days });
+      msg.replaceChildren(h("span", { class: "okmsg", text: "Saved " + r.path + " (" + fmtBytes(r.bytes) + ")." }));
+    } catch (e) { msg.replaceChildren(h("span", { class: "error", text: e.message })); }
+  });
+  pathIn.addEventListener("keydown", (ev) => { if (ev.key === "Enter") document.getElementById("export-save").click(); });
+
+  // ---------- start ----------
+  // Optional URL fragment for links and screenshots: #scan=C:\,D:\&view=size&path=C:\Users&color=growth&days=7&export=1
+  const hashParams = Object.fromEntries(new URLSearchParams((location.hash || "").slice(1)));
+  let hashUsed = false;
+  (async () => {
+    try {
+      const st = await api("/api/state");
+      state.mode = st.mode; state.scans = st.scans; state.job = st.job; state.exportSuggestion = st.exportSuggestion;
+      if (st.job && st.job.state !== "running") state.handledJobId = st.job.id;
+      if (STATIC) {
+        for (const k of ["md", "html"]) state.exportSuggestion[k] = state.exportSuggestion[k].split("\\").pop();
+        document.querySelector("#export-path").previousElementSibling.textContent = "File name (your browser saves the download)";
+        document.getElementById("export-save").textContent = "Download report";
+      }
+      document.getElementById("ver").textContent = "v" + st.version;
+      document.getElementById("demo-badge").classList.toggle("hidden", st.mode !== "demo");
+      if (st.mode === "demo") document.title = "DiskDelta (demo)";
+      if (state.scans.length) setRoot(state.scans[state.scans.length - 1].root);
+      connectEvents();
+      await render();
+      if (hashParams.scan) startScan(hashParams.scan.split(","));
+    } catch (e) {
+      view.replaceChildren(errorBox(e));
+    }
+  })();
+})();
+</script>
+</body>
+</html>

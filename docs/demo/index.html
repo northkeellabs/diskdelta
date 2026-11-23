@@ -1,0 +1,2291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-diskdelta-demo'; style-src 'nonce-diskdelta-demo'; img-src data: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>DiskDelta demo</title>
+<!-- Static browser demo built by scripts/build-demo-site.mjs. All data is invented. -->
+<style nonce="diskdelta-demo">
+:root {
+  --bg: #f3f3f3;
+  --surface: #ffffff;
+  --surface-2: #f8f8f8;
+  --hover: #f0f0f0;
+  --border: #e3e3e3;
+  --border-strong: #cdcdcd;
+  --text: #1a1a1a;
+  --text-2: #5c5c5c;
+  --text-3: #737373;
+  --accent: #0a5fb4;
+  --accent-hover: #084f96;
+  --accent-soft: #e6eef8;
+  --accent-text: #ffffff;
+  --focus: #0a5fb4;
+  --safe-fg: #276843;
+  --safe-bg: #e4f1e8;
+  --safe-tile: #d6eadc;
+  --check-fg: #7a5600;
+  --check-bg: #f7eed8;
+  --check-tile: #f2e7c9;
+  --dnt-fg: #9a2f3a;
+  --dnt-bg: #f6e3e5;
+  --dnt-tile: #f0d6d9;
+  --unk-fg: #555555;
+  --unk-bg: #ececec;
+  --unk-tile: #e4e4e4;
+  --tile-line: rgba(0,0,0,0.16);
+  --bar-track: #e6e6e6;
+  --bar-full: #b07a00;
+  --shadow: 0 1px 2px rgba(0,0,0,0.06);
+  --radius: 6px;
+  --mono: "Cascadia Mono", Consolas, "Courier New", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1b1b1b;
+    --surface: #242424;
+    --surface-2: #2a2a2a;
+    --hover: #2f2f2f;
+    --border: #353535;
+    --border-strong: #474747;
+    --text: #ebebeb;
+    --text-2: #a8a8a8;
+    --text-3: #8f8f8f;
+    --accent: #62a4f0;
+    --accent-hover: #7db4f3;
+    --accent-soft: #1d2d40;
+    --accent-text: #0d1824;
+    --focus: #62a4f0;
+    --safe-fg: #8ccfa3;
+    --safe-bg: #1e3226;
+    --safe-tile: #25382c;
+    --check-fg: #e2bd6b;
+    --check-bg: #372d16;
+    --check-tile: #3a3222;
+    --dnt-fg: #eea0a8;
+    --dnt-bg: #3a2124;
+    --dnt-tile: #45292d;
+    --unk-fg: #b3b3b3;
+    --unk-bg: #2f2f2f;
+    --unk-tile: #333333;
+    --tile-line: rgba(0,0,0,0.55);
+    --bar-track: #363636;
+    --bar-full: #d9a640;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.45 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+.num, td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.muted { color: var(--text-2); }
+.faint { color: var(--text-3); }
+.mono { font-family: var(--mono); font-size: 12.5px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- top bar ---------- */
+header.bar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; gap: 24px;
+  height: 52px; padding: 0 24px;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+}
+.brand { display: flex; align-items: baseline; gap: 8px; font-weight: 600; font-size: 15px; letter-spacing: -0.01em; }
+.brand .ver { font-weight: 400; font-size: 12px; color: var(--text-3); }
+.badge { display: inline-block; padding: 1px 7px; border: 1px solid var(--border-strong); border-radius: 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; color: var(--text-2); }
+nav.tabs { display: flex; gap: 2px; height: 100%; }
+nav.tabs button {
+  position: relative; height: 100%; padding: 0 12px; border: 0; background: none; cursor: pointer;
+  color: var(--text-2); font-weight: 500;
+}
+nav.tabs button:hover:not([disabled]) { color: var(--text); }
+nav.tabs button[aria-selected="true"] { color: var(--text); }
+nav.tabs button[aria-selected="true"]::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: 0; height: 2px; background: var(--accent); border-radius: 2px 2px 0 0; }
+nav.tabs button[disabled] { color: var(--text-3); cursor: default; }
+.bar .spacer { flex: 1; }
+.bar .controls { display: flex; align-items: center; gap: 12px; }
+
+/* ---------- controls ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 30px; padding: 0 12px; border-radius: 5px; cursor: pointer; white-space: nowrap;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font-weight: 500;
+  transition-property: background-color, border-color, transform;
+  transition-duration: 120ms; transition-timing-function: ease-out;
+}
+.btn:hover:not([disabled]) { background: var(--hover); }
+.btn:active:not([disabled]) { transform: scale(0.96); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.btn.primary:hover:not([disabled]) { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn.small { position: relative; height: 26px; padding: 0 9px; font-size: 13px; }
+.btn.small::after, .crumbs button::after, table.grid thead th button::before, .check::after { content: ""; position: absolute; inset: -7px -4px; }
+.btn.link { border-color: transparent; background: none; color: var(--accent); padding: 0 4px; height: auto; }
+.btn.link:hover:not([disabled]) { background: none; text-decoration: underline; }
+.btn[disabled] { opacity: 0.5; cursor: default; }
+.seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 5px; overflow: hidden; }
+.seg button { height: 28px; padding: 0 10px; border: 0; border-left: 1px solid var(--border-strong); background: var(--surface); cursor: pointer; font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.seg button:first-child { border-left: 0; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--text); font-weight: 600; }
+.seg button:hover:not([aria-pressed="true"]) { background: var(--hover); color: var(--text); }
+input.text {
+  height: 30px; padding: 0 9px; border: 1px solid var(--border-strong); border-radius: 5px; background: var(--surface);
+  min-width: 0;
+}
+input.text:focus-visible { outline-offset: 0; }
+input.days { width: 76px; text-align: right; font-variant-numeric: tabular-nums; }
+.tnum { font-variant-numeric: tabular-nums; }
+input.days::-webkit-inner-spin-button, input.days::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input.days { -moz-appearance: textfield; appearance: textfield; }
+.crumb-row { margin-bottom: 8px; justify-content: space-between; }
+p.lead.mono-lead { font-family: var(--mono); font-size: 12.5px; margin-bottom: 16px; overflow-wrap: anywhere; }
+label.inline { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); font-size: 13px; }
+
+/* ---------- layout ---------- */
+main { max-width: 1320px; margin: 0 auto; padding: 24px; }
+.section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 20px; }
+.section > .head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.section > .head h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.section > .head .sub { color: var(--text-2); font-size: 13px; }
+.section > .head .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.section > .body { padding: 16px; }
+.section > .foot { padding: 10px 16px; border-top: 1px solid var(--border); color: var(--text-2); font-size: 13px; }
+h1.page { font-size: 20px; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01em; text-wrap: balance; }
+.section > .head h2 { text-wrap: balance; }
+p.lead { margin: 0 0 20px; color: var(--text-2); max-width: 760px; text-wrap: pretty; }
+td.what, .explain dd, .section > .foot, .note { text-wrap: pretty; }
+.row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.stats { display: flex; gap: 32px; flex-wrap: wrap; }
+.stat .k { font-size: 12px; color: var(--text-2); }
+.stat .v { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.stat .v small { font-size: 13px; font-weight: 400; color: var(--text-2); }
+.stats.summary { align-items: flex-end; gap: 48px; }
+.stat.headline .v { font-size: 28px; letter-spacing: -0.02em; }
+.stat.secondary .k { color: var(--text-3); }
+.stat.secondary .v { font-size: 15px; font-weight: 500; color: var(--text-2); }
+td.secondary { color: var(--text-2); }
+
+/* ---------- tables ---------- */
+table.grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.grid th, table.grid td { padding: 7px 12px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
+table.grid thead th { position: sticky; top: 52px; background: var(--surface-2); color: var(--text-2); font-weight: 600; font-size: 12px; z-index: 1; }
+table.grid thead th button { all: unset; position: relative; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; }
+table.grid thead th button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 2px; }
+table.grid thead th[aria-sort] button::after { content: ""; display: inline-block; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; }
+table.grid thead th[aria-sort="descending"] button::after { border-top: 5px solid currentColor; }
+table.grid thead th[aria-sort="ascending"] button::after { border-bottom: 5px solid currentColor; }
+table.grid tbody tr { transition: background-color 80ms ease; }
+table.grid tbody tr:hover { background: var(--hover); }
+table.grid tbody tr.clickable { cursor: pointer; }
+table.grid tbody tr:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+table.grid tbody tr:last-child td { border-bottom: 0; }
+table.grid th.num, table.grid td.num { text-align: right; }
+td.path { font-family: var(--mono); font-size: 12.5px; overflow-wrap: anywhere; }
+td.name { font-weight: 500; }
+td.what { color: var(--text-2); min-width: 220px; }
+td.wrap { white-space: normal; }
+.empty { padding: 28px 16px; text-align: center; color: var(--text-2); }
+.table-scroll { min-width: 0; }
+
+/* ---------- labels ---------- */
+.chip { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.chip.safe { color: var(--safe-fg); background: var(--safe-bg); }
+.chip.check_first { color: var(--check-fg); background: var(--check-bg); }
+.chip.do_not_touch { color: var(--dnt-fg); background: var(--dnt-bg); }
+.chip.unknown { color: var(--unk-fg); background: var(--unk-bg); }
+.kind { font-size: 12px; color: var(--text-2); }
+.kind.new { color: var(--accent); font-weight: 600; }
+
+/* ---------- drive bars ---------- */
+.meter { width: 160px; height: 6px; background: var(--bar-track); border-radius: 3px; overflow: hidden; }
+.meter > div { height: 100%; background: var(--accent); border-radius: 3px; }
+.meter.full > div { background: var(--bar-full); }
+.progress { height: 4px; background: var(--bar-track); border-radius: 2px; overflow: hidden; }
+.progress > div { height: 100%; width: 100%; background: var(--accent); transform: scaleX(0); transform-origin: left center; transition: transform 300ms ease-out; }
+.progress.indeterminate > div { width: 30%; transform: none; transition: none; animation: slide 1.4s ease-in-out infinite; }
+@keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(340%); } }
+@media (prefers-reduced-motion: reduce) { .progress.indeterminate > div { animation: none; width: 100%; opacity: 0.4; } * { transition: none !important; } }
+
+/* ---------- breadcrumb + folder header ---------- */
+.crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; font-size: 13px; }
+.crumbs button { all: unset; position: relative; cursor: pointer; padding: 2px 5px; border-radius: 4px; color: var(--text-2); }
+.crumbs button:hover { background: var(--hover); color: var(--text); }
+.crumbs button:focus-visible { outline: 2px solid var(--focus); }
+.crumbs .cur { padding: 2px 5px; font-weight: 600; color: var(--text); }
+.crumbs .sep { color: var(--text-3); }
+.explain { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; font-size: 13px; }
+.explain dt { color: var(--text-2); }
+.explain dd { margin: 0; }
+code.cmd { font-family: var(--mono); font-size: 12.5px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+
+/* ---------- treemap ---------- */
+.tm-wrap { position: relative; }
+.treemap { position: relative; height: 420px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.tile {
+  position: absolute; overflow: hidden; cursor: pointer;
+  border: 1px solid var(--tile-line); background: var(--unk-tile);
+}
+.tile.hover { box-shadow: inset 0 0 0 2px var(--text-2); }
+.check { position: relative; display: inline-flex; width: 16px; height: 16px; align-items: center; justify-content: center; cursor: pointer; }
+.check input { margin: 0; cursor: pointer; }
+.tile:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; z-index: 2; }
+.tile.safe { background: var(--safe-tile); }
+.tile.check_first { background: var(--check-tile); }
+.tile.do_not_touch { background: var(--dnt-tile); }
+.tile.unknown { background: var(--unk-tile); }
+.tile.other { background: var(--surface-2); border-style: dashed; border-color: var(--border-strong); }
+.tile .t { position: absolute; left: 5px; right: 5px; top: 2px; height: 16px; font-size: 12px; font-weight: 600; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); pointer-events: none; }
+.tile .t .s { font-weight: 400; color: var(--text-2); font-variant-numeric: tabular-nums; margin-left: 6px; }
+.tile .heatfill { position: absolute; inset: 0; background: var(--accent); pointer-events: none; }
+.tile.heat { background: var(--surface-2); }
+.tm-info { min-height: 22px; margin-top: 8px; font-size: 13px; color: var(--text-2); display: flex; gap: 16px; flex-wrap: wrap; }
+.tm-info b { color: var(--text); font-weight: 600; }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--text-2); align-items: center; flex-wrap: wrap; }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; background: var(--unk-tile); }
+.legend .safe::before { background: var(--safe-tile); }
+.legend .check_first::before { background: var(--check-tile); }
+.legend .do_not_touch::before { background: var(--dnt-tile); }
+.legend .heat0::before { background: var(--surface-2); border: 1px solid var(--border-strong); }
+.legend .heat1::before { background: var(--accent); }
+
+/* ---------- banners / dialog ---------- */
+.note { padding: 10px 14px; border: 1px solid var(--border); border-left: 3px solid var(--accent); background: var(--surface); border-radius: 4px; color: var(--text-2); font-size: 13px; margin-bottom: 16px; }
+.note.stopped { border-left-color: var(--dnt-fg); color: var(--text); }
+.error { color: var(--dnt-fg); font-size: 13px; }
+.okmsg { color: var(--safe-fg); font-size: 13px; }
+dialog { border: 1px solid var(--border-strong); border-radius: 8px; padding: 0; background: var(--surface); color: var(--text); width: min(560px, 92vw); box-shadow: 0 8px 28px rgba(0,0,0,0.18); }
+dialog::backdrop { background: rgba(0,0,0,0.3); }
+dialog .head { padding: 14px 18px; border-bottom: 1px solid var(--border); font-weight: 600; }
+dialog .body { padding: 16px 18px; display: grid; gap: 12px; }
+dialog .foot { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+dialog .field { display: grid; gap: 4px; }
+dialog .field > span { font-size: 12px; color: var(--text-2); }
+.tag { display: inline-block; font-size: 11px; padding: 0 6px; border: 1px solid var(--border-strong); border-radius: 3px; color: var(--text-2); margin-left: 6px; font-weight: 500; vertical-align: 1px; }
+.progress-wrap { margin: 18px 0 10px; }
+.current-path { font-family: var(--mono); font-size: 12px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
+.hidden { display: none !important; }
+footer.foot { max-width: 1320px; margin: 0 auto; padding: 0 24px 32px; color: var(--text-3); font-size: 12px; }
+
+/* ================= redesign: insight first, visuals second, tables in details ================= */
+:root {
+  --fs-xs: 12px; --fs-sm: 13px; --fs-md: 14px; --fs-lg: 16px; --fs-xl: 20px; --fs-2xl: 28px; --fs-3xl: 36px; --fs-hero: 56px;
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px; --sp-7: 48px;
+  --card-radius: 10px;
+  --card-shadow: 0 0 0 1px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04), 0 2px 10px rgba(0,0,0,0.05);
+  --c-safe: #3a9a64; --c-check: #d39a2c; --c-dnt: #cc5a66; --c-unknown: #a9a9a9; --c-personal: #8770c8; --c-other: #dcdcdc; --c-container: #c9d2dc;
+  --c-bar: var(--accent); --c-bar-sel: #063f78;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --card-shadow: 0 0 0 1px rgba(255,255,255,0.07), 0 1px 2px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.35);
+    --c-safe: #4cb47b; --c-check: #ddac48; --c-dnt: #df707b; --c-unknown: #7b7b7b; --c-personal: #a28fe0; --c-other: #3b3b3b; --c-container: #4a5560;
+    --c-bar-sel: #b4d3fa;
+  }
+}
+main { max-width: 1240px; padding: var(--sp-6) var(--sp-5) var(--sp-7); }
+h1.display { font-size: var(--fs-3xl); line-height: 1.15; font-weight: 650; letter-spacing: -0.02em; margin: 0 0 var(--sp-2); text-wrap: balance; }
+.intro { margin-bottom: var(--sp-6); }
+.intro .lead { font-size: var(--fs-lg); max-width: 680px; margin-bottom: var(--sp-5); }
+.btn.big { height: 40px; padding: 0 var(--sp-5); font-size: var(--fs-md); font-weight: 600; border-radius: 6px; }
+.row.pad { padding: var(--sp-3) var(--sp-4); }
+p.pad { padding: var(--sp-3) var(--sp-4); margin: 0; }
+.folder-input { width: min(420px, 100%); }
+
+/* blocks: soft cards for the overview */
+.block { background: var(--surface); border: 1px solid transparent; border-radius: var(--card-radius); box-shadow: var(--card-shadow); padding: var(--sp-5); margin-bottom: var(--sp-5); }
+.block-head { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-4); flex-wrap: wrap; }
+.block-head h2 { margin: 0; font-size: var(--fs-xl); font-weight: 600; letter-spacing: -0.01em; }
+.block-head .block-sub { color: var(--text-2); font-size: var(--fs-sm); }
+.block-head .right { margin-left: auto; display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap; }
+
+/* hero */
+.hero { padding: var(--sp-2) 0 var(--sp-6); }
+.hero-line { margin: 0; font-size: var(--fs-2xl); line-height: 1.2; font-weight: 500; letter-spacing: -0.015em; text-wrap: balance; }
+.hero-where { font-weight: 650; }
+.hero-num { display: inline-block; font-size: var(--fs-hero); font-weight: 700; letter-spacing: -0.03em; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; vertical-align: -6px; margin: 0 2px; }
+.hero-sub { margin: var(--sp-3) 0 0; font-size: var(--fs-lg); color: var(--text-2); max-width: 760px; text-wrap: pretty; }
+.hero-meta { margin: var(--sp-2) 0 0; font-size: var(--fs-sm); color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+/* insight cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--sp-4); }
+.insight { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-4) var(--sp-4) var(--sp-3); border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); min-width: 0; }
+.insight-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-2); }
+.insight-top h3 { margin: 0; font-size: var(--fs-lg); font-weight: 600; line-height: 1.3; text-wrap: balance; }
+.insight-num .plus { font-size: var(--fs-2xl); font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.insight-num .unit { font-size: var(--fs-md); color: var(--text-2); }
+.insight-sub { font-size: var(--fs-xs); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.insight-what { margin: 0; color: var(--text-2); font-size: var(--fs-sm); text-wrap: pretty; }
+.insight-path { font-family: var(--mono); font-size: var(--fs-xs); color: var(--text-3); overflow-wrap: anywhere; }
+.insight-action { font-size: var(--fs-sm); margin-top: auto; padding-top: var(--sp-2); border-top: 1px solid var(--border); min-height: 54px; }
+.insight-foot { display: flex; justify-content: flex-end; }
+.reclaim { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.reclaim .muted { flex-basis: 100%; }
+
+/* timeline */
+.tl-chart { width: 100%; min-height: 230px; }
+.tl-svg { display: block; overflow: visible; }
+.axis { font-size: 11px; fill: var(--text-3); font-variant-numeric: tabular-nums; }
+.grid-line { stroke: var(--border); stroke-width: 1; }
+.axis-line { stroke: var(--border-strong); stroke-width: 1; }
+.bar { fill: var(--c-bar); }
+.bar-hit { fill: transparent; }
+.bar-g { cursor: pointer; outline: none; }
+.bar-g:hover .bar-hit { fill: var(--hover); }
+.bar-g.sel .bar { fill: var(--c-bar-sel); }
+.bar-g.sel .bar-hit { fill: var(--accent-soft); }
+.bar-g:focus-visible .bar-hit { stroke: var(--focus); stroke-width: 2; }
+.tl-svg.draw .bar { transform-box: fill-box; transform-origin: 50% 100%; animation: bar-in 260ms cubic-bezier(0.2, 0, 0, 1) both; }
+@keyframes bar-in { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.chart-note { margin: var(--sp-2) 0 0; font-size: var(--fs-xs); color: var(--text-3); }
+.tl-day { margin-top: var(--sp-4); }
+.day-head { margin: 0 0 var(--sp-2); font-size: var(--fs-md); font-weight: 600; font-variant-numeric: tabular-nums; }
+.day-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border); }
+.day-list li { display: grid; grid-template-columns: 88px minmax(0, 1fr) auto auto; align-items: center; gap: var(--sp-3); padding: 7px 0; border-bottom: 1px solid var(--border); font-size: var(--fs-sm); }
+.day-size { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.day-name { display: flex; flex-direction: column; min-width: 0; }
+.day-title { font-weight: 500; }
+.day-path { font-family: var(--mono); font-size: var(--fs-xs); color: var(--text-3); overflow-wrap: anywhere; }
+
+/* sunburst */
+.sun { display: grid; grid-template-columns: minmax(280px, 480px) minmax(260px, 1fr); gap: var(--sp-6); align-items: start; }
+@media (max-width: 860px) { .sun { grid-template-columns: 1fr; } }
+.sun-chart { min-width: 0; display: flex; justify-content: center; }
+.sun-chart:has(table) { display: block; }
+.sun-svg { display: block; overflow: visible; }
+.arc { stroke: var(--surface); stroke-width: 1; cursor: pointer; transition: opacity 120ms ease-out; }
+.arc.is-other { cursor: default; }
+.arc.ring-2 { fill-opacity: 0.82; }
+.arc.ring-3 { fill-opacity: 0.66; }
+.arc:hover { opacity: 0.85; }
+.arc:focus-visible { outline: none; stroke: var(--focus); stroke-width: 3; }
+.sw-safe, path.sw-safe { fill: var(--c-safe); }
+path.sw-check_first { fill: var(--c-check); }
+path.sw-do_not_touch { fill: var(--c-dnt); }
+path.sw-unknown { fill: var(--c-unknown); }
+path.sw-personal { fill: var(--c-personal); }
+path.sw-other { fill: var(--c-other); }
+path.sw-container { fill: var(--c-container); }
+.legend .sw-container::before, .sw-inline.sw-container::before { background: var(--c-container); }
+.details-block.no-head { padding-top: 0; }
+.details-block.no-head > details.exp:first-child { border-top: 0; }
+.sun-center circle { fill: var(--surface-2); stroke: var(--border); }
+.sun-center.can-up { cursor: pointer; }
+.sun-center.can-up:hover circle { fill: var(--hover); }
+.sun-center:focus-visible { outline: none; }
+.sun-center:focus-visible circle { stroke: var(--focus); stroke-width: 2; }
+.c-name { font-size: 14px; font-weight: 600; fill: var(--text); }
+.c-size { font-size: 18px; font-weight: 700; fill: var(--text); font-variant-numeric: tabular-nums; }
+.c-up { font-size: 11px; fill: var(--accent); font-weight: 600; letter-spacing: 0.02em; }
+.sun-svg.draw, .sun-svg.drill-in, .sun-svg.drill-out { transform-origin: 50% 50%; }
+.sun-svg.draw { animation: sun-draw 360ms cubic-bezier(0.2, 0, 0, 1) both; }
+.sun-svg.drill-in { animation: sun-in 260ms cubic-bezier(0.2, 0, 0, 1) both; }
+.sun-svg.drill-out { animation: sun-out 260ms cubic-bezier(0.2, 0, 0, 1) both; }
+@keyframes sun-draw { from { opacity: 0; transform: scale(0.92) rotate(-12deg); } to { opacity: 1; transform: none; } }
+@keyframes sun-in { from { opacity: 0.3; transform: scale(0.86); } to { opacity: 1; transform: none; } }
+@keyframes sun-out { from { opacity: 0.3; transform: scale(1.12); } to { opacity: 1; transform: none; } }
+.sun-panel { border-left: 1px solid var(--border); padding-left: var(--sp-5); min-width: 0; }
+@media (max-width: 860px) { .sun-panel { border-left: 0; padding-left: 0; border-top: 1px solid var(--border); padding-top: var(--sp-4); } }
+.panel-kicker { font-size: var(--fs-xs); font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--sp-1); }
+.panel-title { margin: 0; font-size: var(--fs-xl); font-weight: 600; overflow-wrap: anywhere; }
+.panel-path { font-family: var(--mono); font-size: var(--fs-xs); color: var(--text-3); overflow-wrap: anywhere; margin-top: 2px; }
+.panel-size { font-size: var(--fs-3xl); font-weight: 700; letter-spacing: -0.02em; margin: var(--sp-3) 0 var(--sp-2); font-variant-numeric: tabular-nums; }
+.panel-facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px var(--sp-4); margin: 0 0 var(--sp-3); font-size: var(--fs-sm); }
+.panel-facts dt { color: var(--text-2); }
+.panel-facts dd { margin: 0; }
+.panel-facts .secondary { color: var(--text-3); }
+.panel-label { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.panel-label .tag { margin-left: 0; }
+.panel-what { margin: var(--sp-3) 0; color: var(--text-2); font-size: var(--fs-sm); text-wrap: pretty; }
+.panel-reclaim { margin-bottom: var(--sp-4); font-size: var(--fs-sm); }
+
+/* legend swatches */
+.legend span[class^="sw-"]::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.legend .sw-safe::before, .sw-inline.sw-safe::before { background: var(--c-safe); }
+.legend .sw-check_first::before, .sw-inline.sw-check_first::before { background: var(--c-check); }
+.legend .sw-do_not_touch::before, .sw-inline.sw-do_not_touch::before { background: var(--c-dnt); }
+.legend .sw-unknown::before, .sw-inline.sw-unknown::before { background: var(--c-unknown); }
+.legend .sw-personal::before, .sw-inline.sw-personal::before { background: var(--c-personal); }
+.legend .sw-other::before, .sw-inline.sw-other::before { background: var(--c-other); border: 1px solid var(--border-strong); }
+.legend .sw-safe { fill: none; }
+.sw-inline::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+
+/* drives */
+.drive-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--sp-4); margin-bottom: var(--sp-5); }
+.drive { display: grid; grid-template-columns: auto 1fr; grid-template-rows: 1fr auto; gap: var(--sp-3) var(--sp-4); padding: var(--sp-5); background: var(--surface); border: 1px solid transparent; border-radius: var(--card-radius); box-shadow: var(--card-shadow); }
+.drive.remote { box-shadow: 0 0 0 1px var(--border); background: var(--surface-2); }
+.drive .ring { grid-row: 1 / span 2; }
+.drive-info { min-width: 0; }
+.drive-name { display: flex; align-items: baseline; gap: var(--sp-2); }
+.drive-letter { font-size: var(--fs-2xl); font-weight: 700; letter-spacing: -0.02em; }
+.drive-label { font-size: var(--fs-md); color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drive-type { font-size: var(--fs-xs); color: var(--text-3); margin-top: 2px; }
+.drive-free { margin-top: var(--sp-3); font-variant-numeric: tabular-nums; }
+.drive-free-num { font-size: var(--fs-xl); font-weight: 650; letter-spacing: -0.01em; }
+.drive-used { font-size: var(--fs-sm); color: var(--text-2); font-variant-numeric: tabular-nums; margin-top: 2px; }
+.drive-actions { display: flex; align-items: center; gap: var(--sp-2); }
+.ring-track { fill: none; stroke: var(--bar-track); stroke-width: 9; }
+.ring-fill { fill: none; stroke: var(--accent); stroke-width: 9; stroke-linecap: round; }
+.ring-fill.full { stroke: var(--bar-full); }
+.ring-pct { font-size: 18px; font-weight: 700; fill: var(--text); font-variant-numeric: tabular-nums; }
+.ring.draw .ring-fill { animation: ring-in 380ms cubic-bezier(0.2, 0, 0, 1) both; }
+@keyframes ring-in { from { stroke-dashoffset: var(--c); } }
+
+/* details expanders */
+.details-block { padding: var(--sp-5) 0 0; overflow: hidden; }
+.details-block > .block-head { padding: 0 var(--sp-5); }
+details.exp { border-top: 1px solid var(--border); }
+details.exp > summary { display: flex; align-items: baseline; gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); cursor: pointer; list-style: none; }
+details.exp > summary::-webkit-details-marker { display: none; }
+details.exp > summary::before { content: ""; width: 0; height: 0; border-left: 5px solid var(--text-2); border-top: 4px solid transparent; border-bottom: 4px solid transparent; transform: translateY(-1px); transition: transform 120ms ease-out; }
+details.exp[open] > summary::before { transform: translateY(-1px) rotate(90deg); }
+details.exp > summary:hover { background: var(--hover); }
+details.exp > summary:focus-visible { outline-offset: -2px; }
+.exp-title { font-size: var(--fs-lg); font-weight: 600; }
+.exp-sub { font-size: var(--fs-sm); color: var(--text-2); overflow-wrap: anywhere; }
+.exp-body { padding: 0 var(--sp-5) var(--sp-5); }
+.exp-body .section { box-shadow: none; }
+.exp-note { margin: 0 0 var(--sp-3); color: var(--text-2); font-size: var(--fs-sm); max-width: 820px; text-wrap: pretty; }
+h3.sub-title { font-size: var(--fs-xl); font-weight: 600; margin: var(--sp-2) 0 2px; }
+.exp-body table.grid thead th { top: 52px; }
+
+/* tooltip */
+.tip { position: fixed; z-index: 50; max-width: 320px; padding: 8px 10px; background: var(--text); color: var(--surface); border-radius: 6px; font-size: var(--fs-xs); line-height: 1.45; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,0.18); font-variant-numeric: tabular-nums; }
+.tip-title { font-weight: 600; font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.tip-line { opacity: 0.85; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tl-svg.draw .bar, .sun-svg.draw, .sun-svg.drill-in, .sun-svg.drill-out, .ring.draw .ring-fill { animation: none !important; }
+}
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="brand">DiskDelta <span class="ver" id="ver"></span> <span class="badge hidden" id="demo-badge" title="Fictional PC, invented files">DEMO</span></div>
+  <nav class="tabs" role="tablist" aria-label="Views" id="tabs">
+    <button role="tab" id="tab-drives" aria-controls="view" aria-selected="true" data-view="drives">Drives</button>
+    <button role="tab" id="tab-overview" aria-controls="view" aria-selected="false" data-view="overview" disabled>Overview</button>
+
+  </nav>
+  <div class="spacer"></div>
+  <div class="controls">
+    <label class="inline" for="root-select" id="root-label">Drive
+      <select id="root-select" class="text"></select>
+    </label>
+    <span class="inline muted" id="days-label">Last</span>
+    <div class="seg" role="group" aria-labelledby="days-label" id="days-seg">
+      <button type="button" data-days="7" aria-pressed="false">7</button>
+      <button type="button" data-days="30" aria-pressed="true">30</button>
+      <button type="button" data-days="90" aria-pressed="false">90</button>
+    </div>
+    <label class="inline"><input class="text days" id="days-custom" type="number" min="1" max="365" step="1" aria-label="Custom number of days" placeholder="Custom"> days</label>
+    <button class="btn" id="export-btn" type="button" disabled>Export report</button>
+  </div>
+</header>
+
+<main id="view" role="tabpanel" aria-labelledby="tab-drives" tabindex="-1"></main>
+<div id="tip" class="tip hidden" role="tooltip"></div>
+<footer class="foot">DiskDelta is read-only: it never deletes, moves or changes anything on your drives. Free and open source, by Northkeel Labs (northkeellabs.com/diskdelta).</footer>
+
+<dialog id="export-dialog" aria-labelledby="export-title">
+  <div class="head" id="export-title">Export report</div>
+  <div class="body">
+    <div class="field"><span>Format</span>
+      <div class="seg" role="group" aria-label="Format" id="fmt-seg">
+        <button type="button" data-fmt="md" aria-pressed="true">Markdown</button>
+        <button type="button" data-fmt="html" aria-pressed="false">HTML</button>
+      </div>
+    </div>
+    <label class="field"><span>Save as (full path; an existing file is never overwritten)</span>
+      <input class="text mono" id="export-path" type="text" spellcheck="false" autocomplete="off">
+    </label>
+    <div id="export-msg" role="status" aria-live="polite"></div>
+  </div>
+  <div class="foot">
+    <button class="btn" type="button" id="export-cancel">Close</button>
+    <button class="btn primary" type="button" id="export-save">Save report</button>
+  </div>
+</dialog>
+
+<script nonce="diskdelta-demo">"use strict";(()=>{var Ae=()=>{throw new Error("No file system in the browser demo")},Q={existsSync:()=>!1,promises:{writeFile:Ae}};function he(o,e){return Math.max(0,Math.ceil((o-e)/864e5))}var W=class{maxDays;fileFloorBytes;now;maxFiles;old;table=new Map;kept=[];stride;constructor(e){this.now=e.now,this.maxDays=e.maxDays??365,this.fileFloorBytes=e.fileFloorBytes??1024*1024,this.maxFiles=e.maxFiles??2e5,this.old=this.maxDays+1,this.stride=this.maxDays+2}observe(e){let t=e.created===null?this.old:Math.min(this.old,he(this.now,e.created)),r=Math.min(this.old,he(this.now,e.modified));if(t>this.maxDays&&r>this.maxDays)return;let n=this.table.get(e.dirId);n||this.table.set(e.dirId,n=new Map);let a=t*this.stride+r,s=n.get(a);s?(s[0]+=e.size,s[1]+=1):n.set(a,[e.size,1]),e.size>=this.fileFloorBytes&&(this.kept.push({dirId:e.dirId,name:e.name,size:e.size,created:e.created,modified:e.modified,cAge:t,mAge:r}),this.kept.length>this.maxFiles*1.2&&this.trim())}trim(){this.kept.sort((e,t)=>t.size-e.size),this.kept.length=this.maxFiles}newByAge(e,t){let r=Math.max(1,Math.min(this.maxDays,Math.floor(e))),n=Array.from({length:r+1},()=>({bytes:0,files:0}));for(let[a,s]of this.table)if(!(t&&!t(a)))for(let[i,[l,d]]of s){let c=Math.floor(i/this.stride);if(c>r)continue;let p=n[Math.max(1,c)];p.bytes+=l,p.files+=d}return n}ownNewAtAge(e){let t=new Map;for(let[r,n]of this.table){let a;for(let[s,[i,l]]of n)Math.max(1,Math.floor(s/this.stride))===e&&(a||t.set(r,a={newBytes:0,newFiles:0,changedBytes:0,changedFiles:0}),a.newBytes+=i,a.newFiles+=l)}return t}window(e){let t=Math.max(1,Math.min(this.maxDays,Math.floor(e)));this.kept.length>this.maxFiles&&this.trim();let r=new Map;for(let[a,s]of this.table){let i;for(let[l,[d,c]]of s){let p=Math.floor(l/this.stride),f=l%this.stride,w=p<=t,y=!w&&f<=t;!w&&!y||(i||(i={newBytes:0,newFiles:0,changedBytes:0,changedFiles:0}),w?(i.newBytes+=d,i.newFiles+=c):(i.changedBytes+=d,i.changedFiles+=c))}i&&r.set(a,i)}let n=[];for(let a of this.kept){let s=a.cAge<=t;!s&&a.mAge>t||n.push({dirId:a.dirId,name:a.name,size:a.size,created:a.created,modified:a.modified,kind:s?"new":"changed"})}return{days:t,start:this.now-t*864e5,own:r,files:n}}};var pe=["bytes","KB","MB","GB","TB","PB"];function C(o){if(!Number.isFinite(o)||o<0)return"unknown";if(o<1e3)return`${o} ${o===1?"byte":"bytes"}`;let e=o,t=0;for(;e>=1e3&&t<pe.length-1;)e/=1024,t++;let r=e>=100?0:e>=10?1:2;return`${e.toFixed(r)} ${pe[t]}`}function _(o){return o.toLocaleString("en-US")}function me(o){let e=Math.round(o/1e3);if(e<60)return`${e}s`;let t=Math.floor(e/60);return t<60?`${t}m ${String(e%60).padStart(2,"0")}s`:`${Math.floor(t/60)}h ${String(t%60).padStart(2,"0")}m`}function ue(o){return o===null||!Number.isFinite(o)?null:new Date(o).toISOString().slice(0,10)}function D(o){let e=o.trim().replace(/\//g,"\\");return e.startsWith("\\\\?\\")&&(e=e.slice(4)),e=e.replace(new RegExp("(?<!^)\\\\{2,}","g"),"\\"),/^[a-zA-Z]:$/.test(e)&&(e+="\\"),/^[a-zA-Z]:\\/.test(e)&&(e=e[0].toUpperCase()+e.slice(1)),e.length>3&&e.endsWith("\\")&&(e=e.replace(/\\+$/,"")),e}var O=o=>D(o).toLowerCase();function V(o){let e=o.replace(/\//g,"\\");return/^[a-zA-Z]:\\/.test(e)||/^[a-zA-Z]:$/.test(e)||/^\\\\[^\\]+\\[^\\]+/.test(e)}function ee(o,e){return o.endsWith("\\")?o+e:o+"\\"+e}function I(o){return D(o).split("\\").filter(e=>e.length>0)}function te(o){let e=D(o);if(/^[A-Z]:\\$/.test(e))return null;let t=e.lastIndexOf("\\");if(t<0)return null;let r=e.slice(0,t);return/^[A-Z]:$/.test(r)?r+"\\":r}function fe(o){let e=D(o);return/^[A-Z]:\\$/.test(e)?e:e.slice(e.lastIndexOf("\\")+1)}function q(o,e){let t=O(o),r=O(e);return t===r?!0:t.startsWith(r.endsWith("\\")?r:r+"\\")}var H=class{constructor(e,t,r){this.root=e;this.growth=t;this.largeFileBytes=r}root;growth;largeFileBytes;parent=[];name=[];ownBytes=[];ownAlloc=[];ownFiles=[];ownLinks=[];skippedItems=[];largeFiles=[];stats;finishedAt=0;totalBytes=new Float64Array(0);totalAlloc=new Float64Array(0);totalFiles=new Float64Array(0);totalFolders=new Float64Array(0);children=[];paths=[];index=null;rolled=new Map;folder(e,t){let r=this.parent.length;return this.parent.push(e),this.name.push(e===-1?D(t):t),this.ownBytes.push(0),this.ownAlloc.push(0),this.ownFiles.push(0),this.ownLinks.push(0),r}file(e){this.ownBytes[e.dirId]+=e.size,this.ownAlloc[e.dirId]+=e.allocated??e.size,this.ownFiles[e.dirId]+=1,this.growth.observe(e),e.size>=this.largeFileBytes&&this.largeFiles.push({dirId:e.dirId,name:e.name,size:e.size,allocated:e.allocated,created:e.created,modified:e.modified})}link(e){this.ownLinks[e]+=1}skipped(e){this.skippedItems.push(e)}get count(){return this.parent.length}finish(e){this.stats=e,this.finishedAt=e.finishedAt;let t=this.count;this.totalBytes=Float64Array.from(this.ownBytes),this.totalAlloc=Float64Array.from(this.ownAlloc),this.totalFiles=Float64Array.from(this.ownFiles),this.totalFolders=new Float64Array(t),this.children=Array.from({length:t},()=>[]);for(let r=t-1;r>=1;r--){let n=this.parent[r];n<0||(this.totalBytes[n]+=this.totalBytes[r],this.totalAlloc[n]+=this.totalAlloc[r],this.totalFiles[n]+=this.totalFiles[r],this.totalFolders[n]+=this.totalFolders[r]+1,this.children[n].push(r))}for(let r of this.children)r.reverse();this.paths=new Array(t);for(let r=0;r<t;r++){let n=this.parent[r];if(n<0)this.paths[r]=this.name[r];else{let a=this.paths[n];this.paths[r]=a.endsWith("\\")?a+this.name[r]:`${a}\\${this.name[r]}`}}this.largeFiles.sort((r,n)=>n.size-r.size)}path(e){return this.paths[e]}find(e){if(!this.index){this.index=new Map;for(let t=0;t<this.count;t++)this.index.set(this.paths[t].toLowerCase(),t)}return this.index.get(O(e))??null}isWithin(e,t){let r=e;for(;r>=0;){if(r===t)return!0;r=this.parent[r]}return!1}growthFor(e){let t=Math.max(1,Math.min(this.growth.maxDays,Math.floor(e))),r=this.rolled.get(t);if(r)return r;let n=this.growth.window(t),a=this.count,s=new Float64Array(a),i=new Float64Array(a),l=new Float64Array(a),d=new Float64Array(a);for(let[p,f]of n.own)s[p]=f.newBytes,i[p]=f.newFiles,l[p]=f.changedBytes,d[p]=f.changedFiles;for(let p=a-1;p>=1;p--){let f=this.parent[p];f<0||(s[f]+=s[p],i[f]+=i[p],l[f]+=l[p],d[f]+=d[p])}let c={window:n,newBytes:s,newFiles:i,changedBytes:l,changedFiles:d};return this.rolled.size>=4&&this.rolled.delete(this.rolled.keys().next().value),this.rolled.set(t,c),c}ownGrowth(e,t){return t.window.own.get(e)??{newBytes:0,newFiles:0,changedBytes:0,changedFiles:0}}};var Se={safe:"Safe to remove",check_first:"Check first",do_not_touch:"Do not touch"},ge=(o,e)=>e?Se[o]:"Unknown - check first",Pe=o=>o.scope==="own"?" (files directly here)":o.scope==="rest"?" (smaller subfolders together)":o.scope==="group"?` (${o.groupCount} folders)`:"";function be(o){let e=[];e.push({title:"Drives",head:["Drive","Label","Type","Size","Used","Free","Used %"],right:[!1,!1,!1,!0,!0,!0,!0],rows:o.drives.map(t=>[t.root,t.label||"-",t.type,C(t.size),C(t.used),C(t.free),`${t.usedPct}%`]),empty:"No drives found."}),e.push({title:"Scans",head:["Scanned","Finished","Took","Folders","Files","Size","Skipped","Links not followed"],right:[!1,!1,!0,!0,!0,!0,!0,!0],rows:o.scans.map(t=>[t.root,t.finishedAt.slice(0,16).replace("T"," "),me(t.durationMs),_(t.folders),_(t.files),C(t.bytes),_(t.skipped),_(t.links)]),empty:"Nothing scanned yet."});for(let t of o.growth)e.push({title:`What grew in the last ${o.days} days: ${t.path}`,intro:`New files: ${C(t.total.newBytes)} (${_(t.total.newFiles)} files created in the window). Separately, older files changed in the window, growth amount unknown: ${C(t.total.changedBytes)} (${_(t.total.changedFiles)} files).`,head:["Folder","New files","Older files changed (growth unknown)","Label","What it is"],right:[!1,!0,!0,!1,!1],rows:t.rows.map(r=>[r.path+Pe(r),r.newBytes?C(r.newBytes):"-",r.changedBytes?C(r.changedBytes):"-",ge(r.label,r.known),r.what]),empty:"No new files and no changed files in this window."});for(let t of o.changedOld)e.push({title:`Changed recently, growth amount unknown: ${t.path}`,intro:`Files of ${C(t.minBytes)} or more that existed before the window and were modified inside it. DiskDelta cannot tell how much they grew.`,head:["File","Now","Created","Modified"],right:[!1,!0,!1,!1],rows:t.files.map(r=>[r.path,C(r.size),r.created?.slice(0,10)??"unknown",r.modified.slice(0,10)]),empty:"None."});for(let t of o.cleanup)e.push({title:`Cleanup candidates: ${t.path}`,intro:t.note,head:["Folder","Size","New files","Label","Why","How to reclaim"],right:[!1,!0,!0,!1,!1,!1],rows:t.candidates.map(r=>[r.path,C(r.bytes),r.newBytes?C(r.newBytes):"-",ge(r.label,r.known),r.reason,r.reclaim]),empty:"No candidates found."});return e.push({title:"Skipped (could not be read)",intro:Object.entries(o.skipped.byReason).map(([t,r])=>`${t.replace(/_/g," ")}: ${r}`).join(", ")||void 0,head:["Path","Kind","Reason"],right:[!1,!1,!1],rows:o.skipped.items.map(t=>[t.path,t.kind,t.reason.replace(/_/g," ")]),empty:"Nothing was skipped."}),e}var De=(o,e)=>{let t=o.replace(/\|/g,"/").replace(/\r?\n/g," ");return e?"`"+t.replace(/`/g,"'")+"`":t.replace(/</g,"&lt;").replace(/>/g,"&gt;")};function Ce(o){let e=[];e.push("# DiskDelta report",""),e.push(`Generated ${o.generatedAt.slice(0,16).replace("T"," ")} UTC${o.mode==="demo"?" from DEMO data (a fictional PC)":""}. Window: last ${o.days} days. Read-only: nothing was changed.`,"");for(let t of be(o)){if(e.push(`## ${t.title}`,""),t.intro&&e.push(t.intro,""),t.rows.length===0){e.push(t.empty,"");continue}e.push(`| ${t.head.join(" | ")} |`),e.push(`| ${t.right.map(r=>r?"---:":"---").join(" | ")} |`);for(let r of t.rows)e.push(`| ${r.map((n,a)=>De(n,a===0)).join(" | ")} |`);e.push("")}return e.push("Made with DiskDelta by Northkeel Labs (https://northkeellabs.com/diskdelta).",""),e.join(`
+`)}var U=o=>o.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");function Le(o){let e=[];for(let t of be(o)){if(e.push(`<h2>${U(t.title)}</h2>`),t.intro&&e.push(`<p>${U(t.intro)}</p>`),t.rows.length===0){e.push(`<p class="empty">${U(t.empty)}</p>`);continue}let r=t.head.map((a,s)=>`<th${t.right[s]?' class="n"':""}>${U(a)}</th>`).join(""),n=t.rows.map(a=>`<tr>${a.map((s,i)=>`<td${t.right[i]?' class="n"':i===0?' class="p"':""}>${U(s)}</td>`).join("")}</tr>`).join(`
+`);e.push(`<table><thead><tr>${r}</tr></thead><tbody>
+${n}
+</tbody></table>`)}return`<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DiskDelta report</title>
+<style>
+:root{color-scheme:light dark;--fg:#1c1c1c;--muted:#5f5f5f;--bg:#fff;--line:#e3e3e3;--head:#f5f5f5}
+@media (prefers-color-scheme:dark){:root{--fg:#e8e8e8;--muted:#a8a8a8;--bg:#1b1b1b;--line:#333;--head:#242424}}
+body{font:14px/1.5 "Segoe UI",system-ui,sans-serif;color:var(--fg);background:var(--bg);margin:32px auto;max-width:1100px;padding:0 16px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:28px 0 8px}p{margin:4px 0 10px;color:var(--muted)}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:var(--head);font-weight:600}.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.p{word-break:break-all;font-family:Consolas,monospace;font-size:12px}
+.empty{font-style:italic}
+</style></head><body>
+<h1>DiskDelta report</h1>
+<p>Generated ${U(o.generatedAt.slice(0,16).replace("T"," "))} UTC${o.mode==="demo"?" from DEMO data (a fictional PC)":""}. Window: last ${o.days} days. Read-only: nothing was changed.</p>
+${e.join(`
+`)}
+<p>Made with DiskDelta by Northkeel Labs (https://northkeellabs.com/diskdelta).</p>
+</body></html>
+`}function we(o,e){return o==="md"?Ce(e):Le(e)}var k=class extends Error{},$=864e5;function j(o){return{label:o.label,known:o.known,ruleId:o.ruleId,category:o.category,what:o.what,reclaim:o.reclaim,command:o.command,notes:o.notes,owner:o.owner,capped:o.capped}}var re=()=>({newBytes:0,newFiles:0,changedBytes:0,changedFiles:0}),J=class{constructor(e){this.deps=e;this.mode=e.mode,this.clock=e.clock??Date.now,this.largeFileBytes=e.largeFileBytes??50*1024*1024}deps;mode;clock;trees=[];snapshotIds=new Map;current=null;jobSeq=0;listeners=new Set;largeFileBytes;get rulesCount(){return this.deps.rules.size}onEvent(e){return this.listeners.add(e),()=>this.listeners.delete(e)}emit(e){for(let t of this.listeners)try{t(e)}catch{}}async listDrives(){return(await this.deps.drives.list()).map(t=>{let r=Math.max(0,t.size-t.free),n=this.trees.filter(a=>O(a.root)===O(t.root)).at(-1);return{...t,used:r,usedPct:t.size>0?Math.round(1e3*r/t.size)/10:0,scannedAt:n?new Date(n.finishedAt).toISOString():null}})}job(){return this.current?{...this.current.view}:null}startScan(e){if(this.current?.view.state==="running")throw new k("A scan is already running.");let t=e.map(s=>{if(!V(s))throw new k(`Not an absolute Windows path: ${s}`);return D(s)});if(t.length===0)throw new k("Nothing to scan.");let r=new AbortController,n={id:++this.jobSeq,state:"running",targets:t,index:0,progress:null,error:null,startedAt:new Date(this.clock()).toISOString(),finishedAt:null},a=async()=>{try{for(let s=0;s<t.length&&(n.index=s,await this.scanOne(t[s],r.signal,i=>{n.progress=i,this.emit({type:"progress",job:{...n}})}),!r.signal.aborted);s++);n.state=r.signal.aborted?"cancelled":"done"}catch(s){n.state="error",n.error=s instanceof Error?s.message:String(s)}n.finishedAt=new Date(this.clock()).toISOString(),this.emit({type:"job",job:{...n}})};return this.current={view:n,abort:r,done:Promise.resolve()},this.current.done=a(),this.emit({type:"job",job:{...n}}),{...n}}cancelScan(){return this.current?.view.state!=="running"?!1:(this.current.abort.abort(),!0)}async waitForJob(){return this.current?(await this.current.done,{...this.current.view}):null}async scanOne(e,t,r){let n=this.clock(),a=this.deps.growthFactory?this.deps.growthFactory(n):new W({now:n}),s=new H(e,a,this.largeFileBytes),i;try{i=await this.deps.scanner.scan(e,s,{signal:t,onProgress:r,concurrency:this.deps.concurrency})}catch(d){let c=d?.code;throw c==="ENOENT"?new k(`Folder not found: ${e}`):c==="EACCES"||c==="EPERM"?new k(`Access denied: ${e}`):d}if(s.finish(i),i.cancelled)return s;for(let d=this.trees.length-1;d>=0;d--)q(this.trees[d].root,e)&&this.trees.splice(d,1);this.trees.push(s);let l=null;try{l=(await this.deps.snapshots.save(this.snapshotOf(s))).id}catch{l=null}return this.snapshotIds.set(s,l),s}snapshotOf(e){let n=[];for(let s=0;s<e.count;s++)e.totalBytes[s]>=10485760&&n.push([e.path(s),e.totalBytes[s],e.totalFiles[s]]);let a=e.largeFiles.filter(s=>s.size>=104857600).map(s=>[ee(e.path(s.dirId),s.name),s.size,s.created,s.modified]);return{format:"diskdelta-snapshot",version:1,createdAt:new Date(e.finishedAt).toISOString(),root:e.root,scanner:e.stats.scanner,stats:e.stats,thresholds:{folderMinBytes:10485760,fileMinBytes:104857600},folders:n,files:a}}scans(){return this.trees.map(e=>this.summary(e))}summary(e){let t=e.stats;return{root:e.root,scanner:t.scanner,sizeNote:this.deps.scanner.sizeNote,finishedAt:new Date(t.finishedAt).toISOString(),durationMs:t.finishedAt-t.startedAt,folders:t.folders,files:t.files,bytes:t.bytes,allocatedBytes:t.allocatedBytes,links:t.links,skipped:t.skipped,hardLinkDuplicates:t.hardLinkDuplicates,cancelled:t.cancelled,snapshotId:this.snapshotIds.get(e)??null}}async ensureScanned(e,t=15*6e4){let r=this.checkPath(e),n=this.treeFor(r);if(n&&this.clock()-n.finishedAt<=t)return this.summary(n);if(this.current?.view.state==="running"){await this.current.done;let l=this.treeFor(r);if(l&&this.clock()-l.finishedAt<=t)return this.summary(l)}let a=this.startScan([r]),s=await this.waitForJob();if(!s||s.state!=="done")throw new k(s?.error??`Scan of ${r} did not finish (job ${a.id}).`);let i=this.treeFor(r);if(!i)throw new k(`Scan of ${r} produced no result.`);return this.summary(i)}checkPath(e){if(typeof e!="string"||!V(e))throw new k("Give an absolute Windows path, for example C:\\Users.");return D(e)}treeFor(e){let t=null;for(let r of this.trees)q(e,r.root)&&(!t||r.finishedAt>=t.finishedAt)&&(t=r);return t}locate(e){let t=this.checkPath(e),r=this.treeFor(t);if(!r)throw new k(`Not scanned yet: ${t}. Scan it (or a folder above it) first.`);let n=r.find(t);if(n===null)throw new k(`Not found in the scan of ${r.root}: ${t}. It may be a file, a link, a skipped folder, or newer than the scan.`);return{t:r,id:n,path:r.path(n)}}classify(e,t){let r=e.parent[t],n=r>=0?e.children[r].map(a=>e.name[a]):void 0;return this.deps.rules.classify(e.path(t),{siblingNames:n})}growthView(e,t,r){let n=e.growthFor(r);return{newBytes:n.newBytes[t],newFiles:n.newFiles[t],changedBytes:n.changedBytes[t],changedFiles:n.changedFiles[t]}}row(e,t,r,n){let a=n??this.classify(e,t);return{path:e.path(t),name:e.parent[t]<0?e.path(t):e.name[t],bytes:e.totalBytes[t],allocated:e.totalAlloc[t],files:e.totalFiles[t],folders:e.totalFolders[t],...this.growthView(e,t,r),...j(a)}}fileRow(e,t){return{path:ee(e.path(t.dirId),t.name),name:t.name,size:t.size,created:t.created===null?null:new Date(t.created).toISOString(),modified:new Date(t.modified).toISOString(),...t.kind?{kind:t.kind}:{}}}days(e){let t=Math.floor(Number(e??30));if(!Number.isFinite(t)||t<1||t>365)throw new k("days must be a whole number from 1 to 365.");return t}folder(e,t={}){let r=this.days(t.days),{t:n,id:a,path:s}=this.locate(e),i=n.growthFor(r),l=Math.min(Math.max(t.limit??500,1),5e3),d=n.children[a].map(w=>this.row(n,w,r)).sort((w,y)=>y.bytes-w.bytes).slice(0,l),c=n.ownGrowth(a,i),p=i.window.files.filter(w=>w.dirId===a).sort((w,y)=>y.size-w.size).slice(0,200).map(w=>this.fileRow(n,w)),f=n.largeFiles.filter(w=>w.dirId===a).slice(0,200).map(w=>this.fileRow(n,w));return{path:s,name:n.parent[a]<0?s:n.name[a],parent:n.parent[a]<0?te(s):n.path(n.parent[a]),scanRoot:n.root,days:r,windowStart:new Date(i.window.start).toISOString(),self:this.row(n,a,r),own:{bytes:n.ownBytes[a],files:n.ownFiles[a],links:n.ownLinks[a],...c},children:d,recentFiles:p,largeFiles:f,fileFloorBytes:n.growth.fileFloorBytes,largeFileBytes:this.largeFileBytes}}whatGrew(e,t={}){let r=this.days(t.days),n=Math.min(Math.max(t.limit??20,1),200),{t:a,id:s,path:i}=this.locate(e),l=a.growthFor(r),d={...l,own:f=>a.ownGrowth(f,l)},{total:c,rows:p}=this.hotspots(a,s,d);return{path:i,days:r,windowStart:new Date(l.window.start).toISOString(),total:c,rows:p.slice(0,n)}}hotspots(e,t,r){let n=b=>({newBytes:r.newBytes[b],newFiles:r.newFiles[b],changedBytes:r.changedBytes[b],changedFiles:r.changedFiles[b]}),a=b=>{let u=re();for(let m of b)u.newBytes+=r.newBytes[m],u.newFiles+=r.newFiles[m],u.changedBytes+=r.changedBytes[m],u.changedFiles+=r.changedFiles[m];return u},s=n(t),i=Math.max(1024*1024,s.newBytes*.005),l=Math.max(1024*1024,s.changedBytes*.005),d=b=>b.newBytes>=i||b.changedBytes>=l,c=b=>r.newBytes[b]>=i||r.changedBytes[b]>=l,p=b=>r.newBytes[b]>0||r.changedBytes[b]>0,f=[],w=(b,u,m,g,v)=>f.push({path:b,scope:u,...m,...j(g),...v?{groupCount:v}:{}}),y=(b,u)=>{if(!c(b))return;let m=this.classify(e,b);if(b!==t&&m.known&&!m.descend)return w(e.path(b),"all",n(b),m);let g=e.children[b].filter(p),v=r.own(b),A=new Map;for(let x of g){let P=this.classify(e,x);if(!P.group)continue;let N=P.group.prefix.toLowerCase(),de=A.get(N)??{ids:[],cls:P,gv:re()};de.ids.push(x),A.set(N,de)}let T=new Set,M=[];for(let x of A.values())x.gv=a(x.ids),d(x.gv)&&(M.push(x),x.ids.forEach(P=>T.add(P)));let S=g.filter(x=>!T.has(x)&&c(x));if(S.length===0&&M.length===0||u>40)return w(e.path(b),"all",n(b),m);let E=d(v);E&&w(e.path(b),"own",{...v},m);for(let x of M)w(`${e.path(b)}\\${x.cls.group.prefix}*`,"group",x.gv,x.cls,x.ids.length);for(let x of S)y(x,u+1);let B=a(g.filter(x=>!T.has(x)&&!c(x)));E||(B.newBytes+=v.newBytes,B.newFiles+=v.newFiles,B.changedBytes+=v.changedBytes,B.changedFiles+=v.changedFiles),d(B)&&w(e.path(b),"rest",B,m)};return y(t,0),f.sort((b,u)=>u.newBytes-b.newBytes||u.changedBytes-b.changedBytes),{total:s,rows:f}}timeline(e,t={}){let r=this.days(t.days),{t:n,id:a,path:s}=this.locate(e),i=n.growth.now,l=n.growth.newByAge(r,a===0?void 0:c=>n.isWithin(c,a)),d=[];for(let c=r;c>=1;c--)d.push({age:c,start:new Date(i-c*$).toISOString(),end:new Date(i-(c-1)*$).toISOString(),newBytes:l[c].bytes,newFiles:l[c].files});return{path:s,days:r,scannedAt:new Date(i).toISOString(),total:{newBytes:d.reduce((c,p)=>c+p.newBytes,0),newFiles:d.reduce((c,p)=>c+p.newFiles,0)},bars:d}}timelineDay(e,t){let r=Math.floor(Number(t.age)),{t:n,id:a,path:s}=this.locate(e);if(!Number.isFinite(r)||r<1||r>n.growth.maxDays)throw new k("age must be a whole number of days from 1.");let i=Math.min(Math.max(t.limit??10,1),100),l=n.growth.ownNewAtAge(r),d=n.count,c=new Float64Array(d),p=new Float64Array(d);for(let[g,v]of l)c[g]=v.newBytes,p[g]=v.newFiles;for(let g=d-1;g>=1;g--){let v=n.parent[g];v<0||(c[v]+=c[g],p[v]+=p[g])}let f=new Float64Array(d),w={newBytes:0,newFiles:0,changedBytes:0,changedFiles:0},y={newBytes:c,newFiles:p,changedBytes:f,changedFiles:f,own:g=>l.get(g)??w},{total:b,rows:u}=this.hotspots(n,a,y),m=n.growth.now;return{path:s,age:r,start:new Date(m-r*$).toISOString(),end:new Date(m-(r-1)*$).toISOString(),total:b,rows:u.slice(0,i)}}sumGrowth(e,t,r){let n=re();for(let a of t){let s=this.growthView(e,a,r);n.newBytes+=s.newBytes,n.newFiles+=s.newFiles,n.changedBytes+=s.changedBytes,n.changedFiles+=s.changedFiles}return n}changedOld(e,t={}){let r=this.days(t.days),{t:n,id:a}=this.locate(e),s=Math.max(t.minBytes??50*1024*1024,n.growth.fileFloorBytes),i=Math.min(Math.max(t.limit??50,1),500),d=n.growthFor(r).window.files.filter(c=>c.kind==="changed"&&c.size>=s&&n.isWithin(c.dirId,a)).sort((c,p)=>p.size-c.size).slice(0,i).map(c=>this.fileRow(n,c));return{path:n.path(a),days:r,minBytes:s,files:d}}largestFiles(e,t={}){let{t:r,id:n}=this.locate(e),a=Math.min(Math.max(t.limit??50,1),1e3),s=r.largeFiles.filter(i=>r.isWithin(i.dirId,n)).slice(0,a).map(i=>this.fileRow(r,i));return{path:r.path(n),minBytes:this.largeFileBytes,files:s}}treemap(e,t={}){let r=Math.min(Math.max(t.depth??2,1),4),n=Math.min(Math.max(t.maxChildren??40,5),200),a=this.days(t.days),{t:s,id:i}=this.locate(e),l=s.growthFor(a),d=(c,p)=>{let f=this.classify(s,c),w={name:s.parent[c]<0?s.path(c):s.name[c],path:s.path(c),bytes:s.totalBytes[c],label:f.label,known:f.known,category:f.category,newBytes:l.newBytes[c],changedBytes:l.changedBytes[c]};if(p>=r)return w;let y=[...s.children[c]].sort((v,A)=>s.totalBytes[A]-s.totalBytes[v]),b=Math.max(s.totalBytes[c]*.002,s.totalBytes[i]*5e-4),m=y.slice(0,n).filter(v=>s.totalBytes[v]>0&&s.totalBytes[v]>=b).map(v=>d(v,p+1)),g=s.totalBytes[c]-m.reduce((v,A)=>v+A.bytes,0);return g>0&&m.length>0&&m.push({name:"Other files and small folders",path:s.path(c),bytes:g,label:f.label,known:f.known,category:f.category,newBytes:0,changedBytes:0,other:!0}),m.length>0&&(w.children=m),w};return d(i,0)}cleanupPlan(e,t={}){let r=this.days(t.days),n=Math.min(Math.max(t.limit??20,1),200),{t:a,id:s,path:i}=this.locate(e),l=1024**3,d=[],c=(u,m,g)=>{let v=(m.newBytes>0?` ${C(m.newBytes)} of it is new in the last ${r} days.`:"")+(m.changedBytes>0?` Older files of ${C(m.changedBytes)} were changed in that time (growth unknown).`:"");return u.known?`${u.what}${v}`:`Unknown folder of ${C(g)}${u.owner?`, probably ${u.owner}`:""}.${v}`},p=10*1024*1024,f=(u,m,g,v,A,T,M=!1)=>{if(g<p)return;let S=M?`Everything else in this folder. ${c(m,A,g)}`:c(m,A,g);d.push({path:u,bytes:g,files:v,...A,...j(m),reason:S,...T?{groupCount:T}:{},...M?{scope:"rest"}:{}})},w=(u,m)=>{let g=this.classify(a,u),v=d.length;if(g.known&&!g.descend){if(g.label==="do_not_touch")return 0;if(g.candidate)return f(a.path(u),g,a.totalBytes[u],a.totalFiles[u],this.growthView(a,u,r)),1}let A=0,T=new Map;for(let S of a.children[u]){let E=this.classify(a,S);if(E.group){let B=E.group.prefix.toLowerCase(),x=T.get(B)??{ids:[],cls:E};x.ids.push(S),T.set(B,x);continue}A+=w(S,g.known)}for(let[,S]of T){let E=S.ids.reduce((x,P)=>x+a.totalBytes[P],0),B=S.ids.reduce((x,P)=>x+a.totalFiles[P],0);f(`${a.path(u)}\\${S.cls.group.prefix}*`,S.cls,E,B,this.sumGrowth(a,S.ids,r),S.ids.length),A++}if(!g.known&&A===0&&m&&u!==s&&a.totalBytes[u]>=l)return f(a.path(u),g,a.totalBytes[u],a.totalFiles[u],this.growthView(a,u,r)),1;if(g.known&&g.matchedPath!==null&&O(g.matchedPath)===O(a.path(u))&&g.candidate&&g.descend){let S=d.slice(v),E=this.growthView(a,u,r);for(let P of S)E.newBytes-=P.newBytes,E.newFiles-=P.newFiles,E.changedBytes-=P.changedBytes,E.changedFiles-=P.changedFiles;let B=a.totalBytes[u]-S.reduce((P,N)=>P+N.bytes,0),x=a.totalFiles[u]-S.reduce((P,N)=>P+N.files,0);B>0&&(f(a.path(u),g,B,x,E,void 0,S.length>0),A++)}return A};w(s,!0);let y=u=>u.known?u.label==="safe"?0:1:2;d.sort((u,m)=>y(u)-y(m)||m.bytes-u.bytes);let b=d.slice(0,n);return{path:i,days:r,totalCandidateBytes:b.reduce((u,m)=>u+m.bytes,0),candidates:b,note:"Proposals only. DiskDelta v0 never deletes anything. Use each item's reclaim step, preferably the owning app's own command."}}explain(e,t={}){let r=this.days(t.days),n=this.checkPath(e),a=this.treeFor(n),s=a?a.find(n):null;if(!a||s===null){let d=this.deps.rules.classify(n);return{path:n,scanned:!1,classification:{...j(d),matchedPath:d.matchedPath},days:r}}let i=this.classify(a,s),l=a.children[s].map(d=>this.row(a,d,r)).sort((d,c)=>c.bytes-d.bytes).slice(0,8);return{path:a.path(s),scanned:!0,classification:{...j(i),matchedPath:i.matchedPath,...i.group?{group:i.group}:{}},size:this.row(a,s,r,i),biggestInside:l,days:r}}skipped(e={}){let t=Math.min(Math.max(e.limit??200,1),5e3),r=[];for(let a of this.trees)r.push(...a.skippedItems);if(e.path){let a=this.checkPath(e.path);r=r.filter(s=>q(s.path,a))}let n={};for(let a of r)n[a.reason]=(n[a.reason]??0)+1;return{total:r.length,byReason:n,items:r.slice(0,t)}}async report(e,t={}){let r=this.days(t.days),n={generatedAt:new Date(this.clock()).toISOString(),mode:this.mode,days:r,drives:await this.listDrives(),scans:this.scans(),growth:this.trees.map(a=>this.whatGrew(a.root,{days:r,limit:25})),changedOld:this.trees.map(a=>this.changedOld(a.root,{days:r,limit:20})),cleanup:this.trees.map(a=>this.cleanupPlan(a.root,{days:r,limit:25})),skipped:this.skipped({limit:50})};return we(e,n)}async exportReport(e,t,r={}){if(!V(t))throw new k("Give a full path, for example C:\\Users\\you\\Downloads\\diskdelta-report.md");let n=D(t),a=e==="md"?".md":".html";if(!n.toLowerCase().endsWith(a))throw new k(`The file name must end in ${a}.`);let s=te(n);if(!s||!Q.existsSync(s))throw new k(`Folder does not exist: ${s??n}`);let i=await this.report(e,r);try{await Q.promises.writeFile(n,i,{encoding:"utf8",flag:"wx"})}catch(l){throw l.code==="EEXIST"?new k(`A file with that name already exists: ${fe(n)}. Pick another name.`):new k(`Could not write the report: ${l.code??l}`)}return{path:n,bytes:Buffer.byteLength(i)}}suggestedExportPath(e,t){let r=ue(this.clock()),n=t.USERPROFILE;return`${n?`${D(n)}\\Downloads`:"C:\\"}\\diskdelta-report-${r}.${e}`}static DAY_MS=$};var ye=`{\r
+  "$schema": "./rules.schema.json",\r
+  "version": 1,\r
+  "rules": [\r
+    {\r
+      "id": "windows-temp",\r
+      "category": "temp",\r
+      "match": ["%TEMP%"],\r
+      "label": "safe",\r
+      "what": "Your Windows temporary folder. Apps leave files here and are expected to clean up after themselves.",\r
+      "reclaim": "Settings > System > Storage > Temporary files, or delete the contents. Files still in use cannot be deleted and are skipped.",\r
+      "notes": "Close apps first. Items changed in the last day may belong to something that is running.",\r
+      "descend": true,\r
+      "examples": { "match": ["%TEMP%", "%TEMP%\\\\WinGet\\\\cache"], "no_match": ["%USERPROFILE%\\\\Documents\\\\Temp", "%WINDIR%\\\\Temp"] }\r
+    },\r
+    {\r
+      "id": "temp-repeated-folders",\r
+      "category": "leftovers",\r
+      "kind": "sibling_group",\r
+      "min_siblings": 5,\r
+      "match": ["%TEMP%\\\\*"],\r
+      "label": "safe",\r
+      "what": "One of many temp folders with the same name prefix, typically left behind by repeated test runs, builds or installers.",\r
+      "reclaim": "Delete the folders in this group that are older than a day. The tool that made them recreates what it needs.",\r
+      "notes": "Detected by name: at least 5 sibling folders in the temp folder share a prefix.",\r
+      "examples": {\r
+        "match": [{ "path": "%TEMP%\\\\vitest-8f3k2a", "siblings": ["vitest-8f3k2a", "vitest-1a9b0c", "vitest-x7y6z5", "vitest-q2w3e4", "vitest-r5t6y7", "notes.txt"] }],\r
+        "no_match": [{ "path": "%TEMP%\\\\report-final", "siblings": ["report-final", "notes.txt", "setup.log"] }]\r
+      }\r
+    },\r
+    {\r
+      "id": "temp-claude-code",\r
+      "category": "temp",\r
+      "match": ["%TEMP%\\\\claude"],\r
+      "label": "check_first",\r
+      "what": "Working files of Claude Code sessions (scratch folders, task output).",\r
+      "reclaim": "Close Claude Code first, then delete it. Folders of sessions that are still running are in use.",\r
+      "candidate": true,\r
+      "examples": { "match": ["%TEMP%\\\\claude", "%TEMP%\\\\claude\\\\session-1\\\\scratchpad"], "no_match": ["%APPDATA%\\\\Claude"] }\r
+    },\r
+    {\r
+      "id": "windows-system-temp",\r
+      "category": "temp",\r
+      "match": ["%WINDIR%\\\\Temp"],\r
+      "label": "safe",\r
+      "what": "The system-wide temporary folder used by Windows services and installers.",\r
+      "reclaim": "Disk Cleanup > Clean up system files > Temporary files (needs admin).",\r
+      "examples": { "match": ["%WINDIR%\\\\Temp"], "no_match": ["%WINDIR%\\\\System32"] }\r
+    },\r
+    {\r
+      "id": "crash-dumps",\r
+      "category": "leftovers",\r
+      "match": ["%LOCALAPPDATA%\\\\CrashDumps"],\r
+      "label": "safe",\r
+      "what": "Memory dumps written when apps crashed. Only useful for reporting a crash to a developer.",\r
+      "reclaim": "Delete the contents.",\r
+      "examples": { "match": ["%LOCALAPPDATA%\\\\CrashDumps"], "no_match": ["%LOCALAPPDATA%\\\\Crashpad"] }\r
+    },\r
+    {\r
+      "id": "windows-error-reports",\r
+      "category": "leftovers",\r
+      "match": ["%PROGRAMDATA%\\\\Microsoft\\\\Windows\\\\WER", "%LOCALAPPDATA%\\\\Microsoft\\\\Windows\\\\WER"],\r
+      "label": "safe",\r
+      "what": "Windows Error Reporting: crash and problem reports already sent or queued.",\r
+      "reclaim": "Disk Cleanup > Clean up system files > Windows error reports.",\r
+      "examples": { "match": ["%PROGRAMDATA%\\\\Microsoft\\\\Windows\\\\WER\\\\ReportArchive"], "no_match": ["%PROGRAMDATA%\\\\Microsoft\\\\Windows Defender"] }\r
+    },\r
+    {\r
+      "id": "windows-update-download",\r
+      "category": "leftovers",\r
+      "match": ["%WINDIR%\\\\SoftwareDistribution\\\\Download"],\r
+      "label": "safe",\r
+      "what": "Windows Update download cache. Updates already installed do not need it.",\r
+      "reclaim": "Disk Cleanup > Clean up system files > Windows Update Cleanup, or Storage Sense.",\r
+      "examples": { "match": ["%WINDIR%\\\\SoftwareDistribution\\\\Download"], "no_match": ["%WINDIR%\\\\SoftwareDistribution\\\\DataStore"] }\r
+    },\r
+    {\r
+      "id": "delivery-optimization",\r
+      "category": "leftovers",\r
+      "match": ["%WINDIR%\\\\ServiceProfiles\\\\NetworkService\\\\AppData\\\\Local\\\\Microsoft\\\\Windows\\\\DeliveryOptimization"],\r
+      "label": "safe",\r
+      "what": "Delivery Optimization cache: update pieces kept to share with other PCs.",\r
+      "reclaim": "Disk Cleanup > Clean up system files > Delivery Optimization Files.",\r
+      "examples": { "match": ["%WINDIR%\\\\ServiceProfiles\\\\NetworkService\\\\AppData\\\\Local\\\\Microsoft\\\\Windows\\\\DeliveryOptimization\\\\Cache"], "no_match": ["%WINDIR%\\\\ServiceProfiles\\\\NetworkService"] }\r
+    },\r
+    {\r
+      "id": "windows-upgrade-files",\r
+      "category": "leftovers",\r
+      "match": ["?:\\\\$WINDOWS.~BT", "?:\\\\$Windows.~WS"],\r
+      "label": "check_first",\r
+      "what": "Temporary files from a Windows upgrade or feature update.",\r
+      "reclaim": "Disk Cleanup > Clean up system files > Temporary Windows installation files. Do not delete while an upgrade is in progress.",\r
+      "examples": { "match": ["C:\\\\$WINDOWS.~BT"], "no_match": ["C:\\\\Windows"] }\r
+    },\r
+    {\r
+      "id": "windows-old",\r
+      "category": "leftovers",\r
+      "match": ["?:\\\\Windows.old"],\r
+      "label": "check_first",\r
+      "what": "Your previous Windows installation, kept so you can go back after an upgrade.",\r
+      "reclaim": "Settings > System > Storage > Temporary files > Previous Windows installation(s). Removing it means you can no longer roll back.",\r
+      "examples": { "match": ["C:\\\\Windows.old", "C:\\\\Windows.old\\\\Users"], "no_match": ["C:\\\\Windows"] }\r
+    },\r
+    {\r
+      "id": "recycle-bin",\r
+      "category": "leftovers",\r
+      "match": ["?:\\\\$Recycle.Bin"],\r
+      "label": "safe",\r
+      "what": "The Recycle Bin: files you already deleted.",\r
+      "reclaim": "Empty the Recycle Bin (right-click it on the desktop). Check it first if you might want something back.",\r
+      "examples": { "match": ["C:\\\\$Recycle.Bin", "D:\\\\$Recycle.Bin\\\\S-1-5-21-1"], "no_match": ["C:\\\\Recycle"] }\r
+    },\r
+    {\r
+      "id": "windows-component-store",\r
+      "command": "Dism.exe /Online /Cleanup-Image /StartComponentCleanup",\r
+      "category": "system",\r
+      "match": ["%WINDIR%\\\\WinSxS"],\r
+      "label": "do_not_touch",\r
+      "what": "The Windows component store. Much of its apparent size is hard links shared with System32.",\r
+      "reclaim": "From an admin prompt: Dism.exe /Online /Cleanup-Image /StartComponentCleanup. Never delete files here by hand.",\r
+      "candidate": false,\r
+      "examples": { "match": ["%WINDIR%\\\\WinSxS", "%WINDIR%\\\\WinSxS\\\\amd64_x"], "no_match": ["%WINDIR%\\\\Temp"] }\r
+    },\r
+    {\r
+      "id": "windows-installer-cache",\r
+      "category": "system",\r
+      "match": ["%WINDIR%\\\\Installer"],\r
+      "label": "do_not_touch",\r
+      "what": "Windows Installer cache. Installed programs need these files to update, repair or uninstall.",\r
+      "reclaim": "Uninstall programs you no longer use (Settings > Apps > Installed apps); their files here go with them.",\r
+      "candidate": false,\r
+      "examples": { "match": ["%WINDIR%\\\\Installer\\\\$PatchCache$"], "no_match": ["%WINDIR%\\\\Temp"] }\r
+    },\r
+    {\r
+      "id": "windows-folder",\r
+      "category": "system",\r
+      "match": ["%WINDIR%"],\r
+      "label": "do_not_touch",\r
+      "what": "Windows itself.",\r
+      "reclaim": "Use Disk Cleanup (Clean up system files) or Storage Sense. Never delete files here by hand.",\r
+      "candidate": false,\r
+      "descend": true,\r
+      "examples": { "match": ["%WINDIR%", "%WINDIR%\\\\System32\\\\drivers"], "no_match": ["C:\\\\Windows.old"] }\r
+    },\r
+    {\r
+      "id": "page-and-swap-files",\r
+      "category": "system",\r
+      "match": ["?:\\\\pagefile.sys", "?:\\\\swapfile.sys"],\r
+      "label": "do_not_touch",\r
+      "what": "Windows system file (page file, swap file, hibernation file).",\r
+      "reclaim": "Windows manages it. Change its size only in System settings (System > About > Advanced system settings > Performance > Settings > Advanced > Virtual memory); never delete it.",\r
+      "notes": "pagefile.sys is the page file; swapfile.sys is the swap file used by Store apps. Both are in use while Windows runs.",\r
+      "candidate": false,\r
+      "examples": { "match": ["C:\\\\pagefile.sys", "C:\\\\swapfile.sys", "D:\\\\pagefile.sys"], "no_match": ["C:\\\\hiberfil.sys", "C:\\\\Temp\\\\pagefile.sys"] }\r
+    },\r
+    {\r
+      "id": "hibernation-file",\r
+      "command": "powercfg /h off",\r
+      "category": "system",\r
+      "match": ["?:\\\\hiberfil.sys"],\r
+      "label": "do_not_touch",\r
+      "what": "Windows system file (page file, swap file, hibernation file).",\r
+      "reclaim": "Turn hibernation off with powercfg /h off in an admin terminal; Windows then removes the file. Never delete it by hand.",\r
+      "notes": "hiberfil.sys holds memory contents for hibernate and Fast Startup; turning hibernation off also turns off Fast Startup.",\r
+      "candidate": false,\r
+      "examples": { "match": ["C:\\\\hiberfil.sys"], "no_match": ["C:\\\\pagefile.sys", "C:\\\\Backup\\\\hiberfil.sys"] }\r
+    },\r
+    {\r
+      "id": "system-volume-information",\r
+      "category": "system",\r
+      "match": ["?:\\\\System Volume Information"],\r
+      "label": "do_not_touch",\r
+      "what": "System Restore points and other volume data kept by Windows.",\r
+      "reclaim": "System Properties > System Protection > Configure: lower the space limit or delete restore points there.",\r
+      "candidate": false,\r
+      "examples": { "match": ["C:\\\\System Volume Information"], "no_match": ["C:\\\\System"] }\r
+    },\r
+    {\r
+      "id": "programdata-microsoft",\r
+      "category": "system",\r
+      "match": ["%PROGRAMDATA%\\\\Microsoft"],\r
+      "label": "do_not_touch",\r
+      "what": "Data used by Windows components and Microsoft services (Defender, update, search and others).",\r
+      "reclaim": "Use Disk Cleanup or the owning feature's settings. Do not delete by hand.",\r
+      "candidate": false,\r
+      "descend": true,\r
+      "examples": { "match": ["%PROGRAMDATA%\\\\Microsoft\\\\Windows Defender"], "no_match": ["%PROGRAMDATA%\\\\Package Cache"] }\r
+    },\r
+    {\r
+      "id": "installer-package-cache",\r
+      "category": "installed-apps",\r
+      "match": ["%PROGRAMDATA%\\\\Package Cache", "%LOCALAPPDATA%\\\\Package Cache"],\r
+      "label": "do_not_touch",\r
+      "what": "Installer package cache. Programs installed with these packages need them to repair or uninstall.",\r
+      "reclaim": "Uninstall programs you no longer use; their cached installers are removed with them.",\r
+      "candidate": false,\r
+      "examples": { "match": ["%PROGRAMDATA%\\\\Package Cache\\\\{1234}"], "no_match": ["%PROGRAMDATA%\\\\Packages"] }\r
+    },\r
+    {\r
+      "id": "program-files",\r
+      "category": "installed-apps",\r
+      "match": ["%PROGRAMFILES%", "%PROGRAMFILES(X86)%"],\r
+      "label": "do_not_touch",\r
+      "what": "Installed programs.",\r
+      "reclaim": "Uninstall programs you no longer use: Settings > Apps > Installed apps. Deleting program folders by hand leaves broken entries behind.",\r
+      "candidate": false,\r
+      "descend": true,\r
+      "examples": { "match": ["%PROGRAMFILES%\\\\Vendor App", "%PROGRAMFILES(X86)%\\\\Common Files"], "no_match": ["C:\\\\Programs"] }\r
+    },\r
+    {\r
+      "id": "user-programs",\r
+      "category": "installed-apps",\r
+      "match": ["%LOCALAPPDATA%\\\\Programs"],\r
+      "label": "do_not_touch",\r
+      "what": "Programs installed for your user only (no admin install).",\r
+      "reclaim": "Uninstall programs you no longer use: Settings > Apps > Installed apps.",\r
+      "candidate": false,\r
+      "descend": true,\r
+      "examples": { "match": ["%LOCALAPPDATA%\\\\Programs\\\\Microsoft VS Code"], "no_match": ["%LOCALAPPDATA%\\\\Packages"] }\r
+    },\r
+    {\r
+      "id": "edge-cache",\r
+      "category": "browser-cache",\r
+      "match": ["%LOCALAPPDATA%\\\\Microsoft\\\\Edge\\\\User Data\\\\*\\\\Cache", "%LOCALAPPDATA%\\\\Microsoft\\\\Edge\\\\User Data\\\\*\\\\Code Cache", "%LOCALAPPDATA%\\\\Microsoft\\\\Edge\\\\User Data\\\\*\\\\Service Worker\\\\CacheStorage"],\r
+      "label": "safe",\r
+      "what": "Microsoft Edge cache: copies of web pages and scripts, downloaded again when needed.",\r
+      "reclaim": "Edge: Settings > Privacy, search and services > Clear browsing data > Cached images and files. Or close Edge and delete the contents.",\r
+      "examples": { "match": ["%LOCALAPPDATA%\\\\Microsoft\\\\Edge\\\\User Data\\\\Default\\\\Cache"], "no_match": ["%LOCALAPPDATA%\\\\Microsoft\\\\Edge\\\\User Data\\\\Default"] }\r
+    },\r
+    {\r
+      "id": "chrome-cache",\r
+      "category": "browser-cache",\r
+      "match": ["%LOCALAPPDATA%\\\\Google\\\\Chrome\\\\User Data\\\\*\\\\Cache", "%LOCALAPPDATA%\\\\Google\\\\Chrome\\\\User Data\\\\*\\\\Code Cache", "%LOCALAPPDATA%\\\\Google\\\\Chrome\\\\User Data\\\\*\\\\Service Worker\\\\CacheStorage"],\r
+      "label": "safe",\r
+      "what": "Google Chrome cache: copies of web pages and scripts, downloaded again when needed.",\r
+      "reclaim": "Chrome: Settings > Privacy and security > Delete browsing data > Cached images and files.",\r
+      "examples": { "match": ["%LOCALAPPDATA%\\\\Google\\\\Chrome\\\\User Data\\\\Profile 1\\\\Code Cache"], "no_match": ["%LOCALAPPDATA%\\\\Google\\\\Chrome\\\\User Data"] }\r
+    },\r
+    {\r
+      "id": "brave-cache",\r
+      "category": "browser-cache",\r
+      "match": ["%LOCALAPPDATA%\\\\BraveSoftware\\\\Brave-Browser\\\\User Data\\\\*\\\\Cache", "%LOCALAPPDATA%\\\\BraveSoftware\\\\Brave-Browser\\\\User Data\\\\*\\\\Code Cache"],\r
+      "label": "safe",\r
+      "what": "Brave cache: copies of web pages and scripts, downloaded again when needed.",\r
+      "reclaim": "Brave: Settings > Privacy and security > Delete browsing data > Cached images and files.",\r
+      "examples": { "match": ["%LOCALAPPDATA%\\\\BraveSoftware\\\\Brave-Browser\\\\User Data\\\\Default\\\\Cache"], "no_match": ["%LOCALAPPDATA%\\\\BraveSoftware\\\\Brave-Browser\\\\User Data\\\\Default"] }\r
+    },\r
+    {\r
+      "id": "firefox-cache",\r
+      "category": "browser-cache",\r
+      "match": ["%LOCALAPPDATA%\\\\Mozilla\\\\Firefox\\\\Profiles\\\\*\\\\cache2"],\r
+      "label": "safe",\r
+      "what": "Firefox cache: copies of web pages and scripts, downloaded again when needed.",\r
+      "reclaim": "Firefox: Settings > Privacy & Security > Cookies and Site Data > Clear Data > Cached Web Content.",\r
+      "examples": { "match": ["%LOCALAPPDATA%\\\\Mozilla\\\\Firefox\\\\Profiles\\\\ab12cd.default-release\\\\cache2"], "no_match": ["%APPDATA%\\\\Mozilla\\\\Firefox\\\\Profiles\\\\ab12cd.default-release"] }\r
+    },\r
+    {\r
+      "id": "browser-profiles",\r
+      "category": "app-data",\r
+      "match": ["%LOCALAPPDATA%\\\\Microsoft\\\\Edge\\\\User Data", "%LOCALAPPDATA%\\\\Google\\\\Chrome\\\\User Data", "%LOCALAPPDATA%\\\\BraveSoftware\\\\Brave-Browser\\\\User Data", "%APPDATA%\\\\Mozilla\\\\Firefox\\\\Profiles"],\r
+      "label": "check_first",\r
+      "what": "Browser profile: history, saved passwords, cookies, extensions and settings.",\r
+      "reclaim": "Clear what you do not need from the browser's own settings. Deleting the folder signs you out everywhere and loses local data.",\r
+      "candidate": false,\r
+      "descend": true,\r
+      "examples": { "match": ["%LOCALAPPDATA%\\\\Microsoft\\\\Edge\\\\User Data\\\\Default"], "no_match": ["%LOCALAPPDATA%\\\\Microsoft\\\\Edge\\\\Application"] }\r
+    },\r
+    {\r
+      "id": "electron-app-cache",\r
+      "category": "app-cache",\r
+      "match": ["%APPDATA%\\\\*\\\\Cache", "%APPDATA%\\\\*\\\\Code Cache", "%APPDATA%\\\\*\\\\GPUCache"],\r
+      "label": "safe",\r
+      "what": "Cache of a desktop app built on Chromium (Electron): copies of web content, rebuilt when needed.",\r
+      "reclaim": "Close the app, then delete the contents.",\r
+      "examples": { "match": ["%APPDATA%\\\\Slack\\\\Cache", "%APPDATA%\\\\Claude\\\\Code Cache"], "no_match": ["%APPDATA%\\\\Slack\\\\storage"] }\r
+    },\r
+    {\r
+      "id": "inet-cache",\r
+      "category": "app-cache",\r
+      "match": ["%LOCALAPPDATA%\\\\Microsoft\\\\Windows\\\\INetCache"],\r
+      "label": "safe",\r
+      "what": "Temporary Internet files used by Windows and older apps.",\r
+      "reclaim": "Disk Cleanup > Temporary Internet Files.",\r
+      "examples": { "match": ["%LOCALAPPDATA%\\\\Microsoft\\\\Windows\\\\INetCache\\\\IE"], "no_match": ["%LOCALAPPDATA%\\\\Microsoft\\\\Windows\\\\History"] }\r
+    },\r
+    {\r
+      "id": "thumbnail-cache",\r
+      "category": "app-cache",\r
+      "match": ["%LOCALAPPDATA%\\\\Microsoft\\\\Windows\\\\Explorer"],\r
+      "label": "safe",\r
+      "what": "File Explorer thumbnail and icon cache, rebuilt when needed.",\r
+      "reclaim": "Disk Cleanup > Thumbnails.",\r
+      "examples": { "match": ["%LOCALAPPDATA%\\\\Microsoft\\\\Windows\\\\Explorer"], "no_match": ["%LOCALAPPDATA%\\\\Microsoft\\\\Windows\\\\INetCache"] }\r
+    },\r
+    {\r
+      "id": "shader-caches",\r
+      "category": "app-cache",\r
+      "match": ["%LOCALAPPDATA%\\\\D3DSCache", "%LOCALAPPDATA%\\\\NVIDIA\\\\DXCache", "%LOCALAPPDATA%\\\\NVIDIA\\\\GLCache", "%LOCALAPPDATA%\\\\AMD\\\\DxCache", "%LOCALAPPDATA%\\\\AMD\\\\DxcCache"],\r
+      "label": "safe",\r
+      "what": "Graphics shader cache. Games and apps rebuild it; the first start after clearing can be slower.",\r
+      "reclaim": "Disk Cleanup > DirectX Shader Cache, or close games and delete the contents.",\r
+      "examples": { "match": ["%LOCALAPPDATA%\\\\D3DSCache", "%LOCALAPPDATA%\\\\NVIDIA\\\\DXCache"], "no_match": ["%LOCALAPPDATA%\\\\NVIDIA\\\\NvBackend"] }\r
+    },\r
+    {\r
+      "id": "nvidia-installer-downloads",\r
+      "category": "leftovers",\r
+      "match": ["%PROGRAMDATA%\\\\NVIDIA Corporation\\\\Downloader"],\r
+      "label": "safe",\r
+      "what": "Downloaded NVIDIA driver installers.",\r
+      "reclaim": "Delete the contents once the driver is installed.",\r
+      "examples": { "match": ["%PROGRAMDATA%\\\\NVIDIA Corporation\\\\Downloader\\\\latest"], "no_match": ["%PROGRAMDATA%\\\\NVIDIA Corporation\\\\Drs"] }\r
+    },\r
+    {\r
+      "id": "vscode-caches",\r
+      "category": "app-cache",\r
+      "match": ["%APPDATA%\\\\Code\\\\Cache", "%APPDATA%\\\\Code\\\\CachedData", "%APPDATA%\\\\Code\\\\CachedExtensionVSIXs"],\r
+      "label": "safe",\r
+      "what": "VS Code caches, including data for old versions and downloaded extension packages.",\r
+      "reclaim": "Close VS Code, then delete the contents.",\r
+      "examples": { "match": ["%APPDATA%\\\\Code\\\\CachedData"], "no_match": ["%APPDATA%\\\\Code\\\\User"] }\r
+    },\r
+    {\r
+      "id": "vscode-extensions",\r
+      "category": "app-data",\r
+      "match": ["%USERPROFILE%\\\\.vscode\\\\extensions"],\r
+      "label": "check_first",\r
+      "what": "Installed VS Code extensions.",\r
+      "reclaim": "Uninstall extensions you do not use from the Extensions view in VS Code.",\r
+      "examples": { "match": ["%USERPROFILE%\\\\.vscode\\\\extensions"], "no_match": ["%USERPROFILE%\\\\.vscode-server"] }\r
+    },\r
+    {\r
+      "id": "jetbrains-caches",\r
+      "category": "app-cache",\r
+      "match": ["%LOCALAPPDATA%\\\\JetBrains\\\\*\\\\caches"],\r
+      "label": "safe",\r
+      "what": "JetBrains IDE caches and indexes, rebuilt when needed.",\r
+      "reclaim": "In the IDE: File > Invalidate Caches. Folders of IDE versions you no longer use can go entirely.",\r
+      "examples": { "match": ["%LOCALAPPDATA%\\\\JetBrains\\\\IntelliJIdea2025.2\\\\caches"], "no_match": ["%APPDATA%\\\\JetBrains\\\\IntelliJIdea2025.2"] }\r
+    },\r
+    {\r
+      "id": "npm-cache",\r
+      "command": "npm cache clean --force",\r
+      "category": "package-cache",\r
+      "match": ["%LOCALAPPDATA%\\\\npm-cache"],\r
+      "label": "safe",\r
+      "what": "npm download cache. Packages are downloaded again when needed.",\r
+      "reclaim": "npm cache clean --force",\r
+      "examples": { "match": ["%LOCALAPPDATA%\\\\npm-cache\\\\_cacache"], "no_match": ["%APPDATA%\\\\npm"] }\r
+    },\r
+    {\r
+      "id": "yarn-cache",\r
+      "command": "yarn cache clean",\r
+      "category": "package-cache",\r
+      "match": ["%LOCALAPPDATA%\\\\Yarn\\\\Cache"],\r
+      "label": "safe",\r
+      "what": "Yarn download cache.",\r
+      "reclaim": "yarn cache clean",\r
+      "examples": { "match": ["%LOCALAPPDATA%\\\\Yarn\\\\Cache\\\\v6"], "no_match": ["%LOCALAPPDATA%\\\\Yarn\\\\Data"] }\r
+    },\r
+    {\r
+      "id": "pnpm-store",\r
+      "command": "pnpm store prune",\r
+      "category": "package-cache",\r
+      "match": ["%LOCALAPPDATA%\\\\pnpm\\\\store", "?:\\\\.pnpm-store"],\r
+      "label": "safe",\r
+      "what": "pnpm content store shared by your projects.",\r
+      "reclaim": "pnpm store prune (removes only packages no project uses).",\r
+      "examples": { "match": ["%LOCALAPPDATA%\\\\pnpm\\\\store\\\\v3"], "no_match": ["%LOCALAPPDATA%\\\\pnpm"] }\r
+    },\r
+    {\r
+      "id": "pip-cache",\r
+      "command": "pip cache purge",\r
+      "category": "package-cache",\r
+      "match": ["%LOCALAPPDATA%\\\\pip\\\\cache"],\r
+      "label": "safe",\r
+      "what": "pip download and wheel cache.",\r
+      "reclaim": "pip cache purge",\r
+      "examples": { "match": ["%LOCALAPPDATA%\\\\pip\\\\cache\\\\http-v2"], "no_match": ["%APPDATA%\\\\pip"] }\r
+    },\r
+    {\r
+      "id": "uv-cache",\r
+      "command": "uv cache clean",\r
+      "category": "package-cache",\r
+      "match": ["%LOCALAPPDATA%\\\\uv\\\\cache"],\r
+      "label": "safe",\r
+      "what": "uv package cache.",\r
+      "reclaim": "uv cache clean (or uv cache prune to keep what is in use).",\r
+      "examples": { "match": ["%LOCALAPPDATA%\\\\uv\\\\cache"], "no_match": ["%LOCALAPPDATA%\\\\uv\\\\python"] }\r
+    },\r
+    {\r
+      "id": "nuget-packages",\r
+      "command": "dotnet nuget locals all --clear",\r
+      "category": "package-cache",\r
+      "match": ["%USERPROFILE%\\\\.nuget\\\\packages", "%LOCALAPPDATA%\\\\NuGet\\\\v3-cache"],\r
+      "label": "safe",\r
+      "what": "NuGet package cache for .NET projects.",\r
+      "reclaim": "dotnet nuget locals all --clear",\r
+      "examples": { "match": ["%USERPROFILE%\\\\.nuget\\\\packages"], "no_match": ["%USERPROFILE%\\\\.nuget"] }\r
+    },\r
+    {\r
+      "id": "gradle-caches",\r
+      "category": "package-cache",\r
+      "match": ["%USERPROFILE%\\\\.gradle\\\\caches", "%USERPROFILE%\\\\.gradle\\\\wrapper\\\\dists"],\r
+      "label": "safe",\r
+      "what": "Gradle dependency and build caches.",\r
+      "reclaim": "Stop Gradle daemons (gradle --stop), then delete. Files are downloaded again by the next build.",\r
+      "examples": { "match": ["%USERPROFILE%\\\\.gradle\\\\caches"], "no_match": ["%USERPROFILE%\\\\.gradle\\\\gradle.properties"] }\r
+    },\r
+    {\r
+      "id": "maven-repository",\r
+      "category": "package-cache",\r
+      "match": ["%USERPROFILE%\\\\.m2\\\\repository"],\r
+      "label": "safe",\r
+      "what": "Maven local repository (downloaded dependencies).",\r
+      "reclaim": "Delete it; the next build downloads what it needs.",\r
+      "examples": { "match": ["%USERPROFILE%\\\\.m2\\\\repository"], "no_match": ["%USERPROFILE%\\\\.m2\\\\settings.xml"] }\r
+    },\r
+    {\r
+      "id": "cargo-registry",\r
+      "category": "package-cache",\r
+      "match": ["%USERPROFILE%\\\\.cargo\\\\registry", "%USERPROFILE%\\\\.cargo\\\\git"],\r
+      "label": "safe",\r
+      "what": "Cargo (Rust) download cache of crates.",\r
+      "reclaim": "Delete it; cargo downloads crates again when a build needs them.",\r
+      "examples": { "match": ["%USERPROFILE%\\\\.cargo\\\\registry"], "no_match": ["%USERPROFILE%\\\\.cargo\\\\bin"] }\r
+    },\r
+    {\r
+      "id": "go-build-cache",\r
+      "command": "go clean -cache",\r
+      "category": "package-cache",\r
+      "match": ["%LOCALAPPDATA%\\\\go-build"],\r
+      "label": "safe",\r
+      "what": "Go build cache.",\r
+      "reclaim": "go clean -cache",\r
+      "examples": { "match": ["%LOCALAPPDATA%\\\\go-build"], "no_match": ["%USERPROFILE%\\\\go"] }\r
+    },\r
+    {\r
+      "id": "conda-pkgs",\r
+      "command": "conda clean --all",\r
+      "category": "package-cache",\r
+      "match": ["%USERPROFILE%\\\\miniconda3\\\\pkgs", "%USERPROFILE%\\\\anaconda3\\\\pkgs", "%USERPROFILE%\\\\miniforge3\\\\pkgs"],\r
+      "label": "safe",\r
+      "what": "Conda package cache (downloaded packages and tarballs).",\r
+      "reclaim": "conda clean --all",\r
+      "examples": { "match": ["%USERPROFILE%\\\\miniconda3\\\\pkgs"], "no_match": ["%USERPROFILE%\\\\miniconda3\\\\envs"] }\r
+    },\r
+    {\r
+      "id": "node-modules",\r
+      "category": "dev-build",\r
+      "match": ["**\\\\node_modules"],\r
+      "label": "safe",\r
+      "what": "Installed JavaScript packages of a project. The project's package manager recreates them.",\r
+      "reclaim": "Delete it, then run npm install (or pnpm install / yarn) in the project when you work on it again.",\r
+      "notes": "Projects without a lock file may get newer package versions on reinstall.",\r
+      "examples": { "match": ["C:\\\\dev\\\\shop-api\\\\node_modules", "D:\\\\work\\\\site\\\\node_modules\\\\.pnpm"], "no_match": ["C:\\\\dev\\\\shop-api\\\\src"] }\r
+    },\r
+    {\r
+      "id": "python-bytecode",\r
+      "category": "dev-build",\r
+      "match": ["**\\\\__pycache__"],\r
+      "label": "safe",\r
+      "what": "Compiled Python bytecode, recreated automatically.",\r
+      "reclaim": "Delete it.",\r
+      "examples": { "match": ["C:\\\\dev\\\\tool\\\\src\\\\__pycache__"], "no_match": ["C:\\\\dev\\\\tool\\\\src"] }\r
+    },\r
+    {\r
+      "id": "python-venv",\r
+      "category": "dev-build",\r
+      "match": ["**\\\\.venv", "**\\\\venv"],\r
+      "label": "check_first",\r
+      "what": "Python virtual environment of a project.",\r
+      "reclaim": "Delete it and recreate it from the project's requirements or lock file (for example uv sync or pip install -r requirements.txt).",\r
+      "notes": "Packages installed by hand and not listed in a requirements file are lost.",\r
+      "examples": { "match": ["C:\\\\dev\\\\ml\\\\.venv"], "no_match": ["C:\\\\dev\\\\ml\\\\venv-notes.txt"] }\r
+    },\r
+    {\r
+      "id": "ollama-models",\r
+      "command": "ollama rm <name>",\r
+      "category": "model-store",\r
+      "match": ["%USERPROFILE%\\\\.ollama\\\\models", "**\\\\ollama\\\\models"],\r
+      "label": "check_first",\r
+      "what": "Ollama model store (model weights in blobs, names in manifests).",\r
+      "reclaim": "List models with ollama list, remove one with ollama rm <name>. Do not delete files by hand: blobs are shared between models.",\r
+      "examples": { "match": ["%USERPROFILE%\\\\.ollama\\\\models\\\\blobs\\\\sha256-0f3a9c", "D:\\\\AI\\\\ollama\\\\models\\\\blobs"], "no_match": ["%USERPROFILE%\\\\.ollama", "D:\\\\AI\\\\ollama"] }\r
+    },\r
+    {\r
+      "id": "ollama-home",\r
+      "category": "model-store",\r
+      "match": ["%USERPROFILE%\\\\.ollama", "%LOCALAPPDATA%\\\\Ollama"],\r
+      "label": "check_first",\r
+      "what": "Ollama data: keys, history, logs and downloaded updates.",\r
+      "reclaim": "Models: ollama rm <name>. Logs and old update installers can be deleted with Ollama closed.",\r
+      "candidate": false,\r
+      "descend": true,\r
+      "examples": { "match": ["%USERPROFILE%\\\\.ollama\\\\id_ed25519.pub", "%LOCALAPPDATA%\\\\Ollama\\\\app.log"], "no_match": ["%LOCALAPPDATA%\\\\Programs\\\\Ollama"] }\r
+    },\r
+    {\r
+      "id": "lmstudio-models",\r
+      "category": "model-store",\r
+      "match": ["%USERPROFILE%\\\\.lmstudio\\\\models", "%USERPROFILE%\\\\.cache\\\\lm-studio\\\\models"],\r
+      "label": "check_first",\r
+      "what": "LM Studio downloaded models.",\r
+      "reclaim": "Delete models you no longer use from LM Studio's My Models page.",\r
+      "examples": { "match": ["%USERPROFILE%\\\\.lmstudio\\\\models\\\\some-org\\\\some-model-GGUF"], "no_match": ["%USERPROFILE%\\\\.lmstudio\\\\conversations"] }\r
+    },\r
+    {\r
+      "id": "huggingface-cache",\r
+      "command": "huggingface-cli delete-cache",\r
+      "category": "model-store",\r
+      "match": ["%USERPROFILE%\\\\.cache\\\\huggingface", "**\\\\huggingface\\\\hub", "**\\\\models--*--*"],\r
+      "label": "check_first",\r
+      "what": "Hugging Face download cache: models and datasets used by Python libraries.",\r
+      "reclaim": "huggingface-cli delete-cache (lets you pick which models to remove). Anything removed is downloaded again on next use.",\r
+      "examples": { "match": ["%USERPROFILE%\\\\.cache\\\\huggingface\\\\hub", "D:\\\\caches\\\\models--some-org--some-model\\\\blobs"], "no_match": ["%USERPROFILE%\\\\.cache\\\\pip", "D:\\\\caches\\\\models"] }\r
+    },\r
+    {\r
+      "id": "torch-cache",\r
+      "category": "model-store",\r
+      "match": ["%USERPROFILE%\\\\.cache\\\\torch"],\r
+      "label": "check_first",\r
+      "what": "PyTorch hub cache: downloaded model weights.",\r
+      "reclaim": "Delete model folders you no longer use; they are downloaded again on next use.",\r
+      "examples": { "match": ["%USERPROFILE%\\\\.cache\\\\torch\\\\hub"], "no_match": ["%USERPROFILE%\\\\.cache\\\\huggingface"] }\r
+    },\r
+    {\r
+      "id": "user-cache-folder",\r
+      "category": "app-cache",\r
+      "match": ["%USERPROFILE%\\\\.cache"],\r
+      "label": "check_first",\r
+      "what": "Shared cache folder used by many developer tools. Most of it is rebuilt; some tools keep downloaded models here.",\r
+      "reclaim": "Look at the subfolders and clear each with its own tool.",\r
+      "candidate": false,\r
+      "descend": true,\r
+      "examples": { "match": ["%USERPROFILE%\\\\.cache\\\\pre-commit"], "no_match": ["%USERPROFILE%\\\\.config"] }\r
+    },\r
+    {\r
+      "id": "docker-desktop-disk",\r
+      "command": "docker system prune",\r
+      "category": "vm-disk",\r
+      "match": ["%LOCALAPPDATA%\\\\Docker\\\\wsl"],\r
+      "label": "check_first",\r
+      "what": "Docker Desktop virtual disk: all images, containers, volumes and build cache.",\r
+      "reclaim": "docker system prune (add -a to also remove unused images; volumes are kept unless you add --volumes). The disk file may not shrink on its own afterwards. Never delete the file by hand.",\r
+      "examples": { "match": ["%LOCALAPPDATA%\\\\Docker\\\\wsl\\\\disk\\\\docker_data.vhdx", "%LOCALAPPDATA%\\\\Docker\\\\wsl\\\\data\\\\ext4.vhdx"], "no_match": ["%LOCALAPPDATA%\\\\Docker\\\\log"] }\r
+    },\r
+    {\r
+      "id": "docker-desktop-data",\r
+      "category": "app-data",\r
+      "match": ["%LOCALAPPDATA%\\\\Docker", "%APPDATA%\\\\Docker", "%APPDATA%\\\\Docker Desktop"],\r
+      "label": "check_first",\r
+      "what": "Docker Desktop data: settings, logs and its virtual disk.",\r
+      "reclaim": "Clean up through Docker (docker system prune) or Docker Desktop's settings, not by deleting files.",\r
+      "candidate": false,\r
+      "descend": true,\r
+      "examples": { "match": ["%LOCALAPPDATA%\\\\Docker\\\\log"], "no_match": ["%LOCALAPPDATA%\\\\Docker\\\\wsl\\\\disk\\\\docker_data.vhdx"] }\r
+    },\r
+    {\r
+      "id": "python-tool-data",\r
+      "category": "app-data",\r
+      "match": ["%LOCALAPPDATA%\\\\uv", "%LOCALAPPDATA%\\\\pip"],\r
+      "label": "check_first",\r
+      "what": "Data of a Python packaging tool (uv or pip): its cache and, for uv, Python versions and tools it installed.",\r
+      "reclaim": "Clear the cache with the tool's own command (uv cache clean, pip cache purge); uninstall uv-managed Pythons with uv python uninstall.",\r
+      "candidate": false,\r
+      "descend": true,\r
+      "examples": { "match": ["%LOCALAPPDATA%\\\\uv\\\\python", "%LOCALAPPDATA%\\\\pip"], "no_match": ["%LOCALAPPDATA%\\\\uv\\\\cache"] }\r
+    },\r
+    {\r
+      "id": "wsl-distro-disk",\r
+      "category": "vm-disk",\r
+      "match": ["%LOCALAPPDATA%\\\\Packages\\\\CanonicalGroupLimited.*\\\\LocalState", "%LOCALAPPDATA%\\\\Packages\\\\TheDebianProject.*\\\\LocalState", "%LOCALAPPDATA%\\\\wsl"],\r
+      "label": "check_first",\r
+      "what": "WSL Linux distribution disk (everything inside that Linux install).",\r
+      "reclaim": "Free space inside Linux first. To remove a distro you no longer need: wsl --list --verbose, then wsl --unregister <name> (deletes everything in it).",\r
+      "examples": { "match": ["%LOCALAPPDATA%\\\\Packages\\\\CanonicalGroupLimited.Ubuntu22.04LTS_79rhkp1fndgsc\\\\LocalState\\\\ext4.vhdx"], "no_match": ["%LOCALAPPDATA%\\\\Packages\\\\Contoso.NotesApp_8wekyb3d8bbwe"] }\r
+    },\r
+    {\r
+      "id": "claude-vm-bundles",\r
+      "category": "vm-disk",\r
+      "match": ["**\\\\Claude\\\\vm_bundles", "%LOCALAPPDATA%\\\\Claude-Data\\\\*\\\\vm_bundles", "%APPDATA%\\\\Claude-Data\\\\*\\\\vm_bundles"],\r
+      "label": "do_not_touch",\r
+      "what": "Virtual machine disk used by the Claude desktop app.",\r
+      "reclaim": "Leave it to the app. If you no longer use the app, uninstall it first, then check whether this folder is still there.",\r
+      "candidate": false,\r
+      "examples": { "match": ["%APPDATA%\\\\Claude\\\\vm_bundles\\\\claudevm.bundle\\\\rootfs.vhdx", "%LOCALAPPDATA%\\\\Claude-Data\\\\claude_ab12cd34\\\\vm_bundles\\\\claudevm.bundle\\\\sessiondata.vhdx", "C:\\\\Users\\\\other\\\\AppData\\\\Roaming\\\\Claude\\\\vm_bundles"], "no_match": ["%APPDATA%\\\\Claude\\\\logs", "%LOCALAPPDATA%\\\\Claude-Data\\\\claude_ab12cd34\\\\logs"] }\r
+    },\r
+    {\r
+      "id": "claude-desktop-data",\r
+      "category": "app-data",\r
+      "match": ["%APPDATA%\\\\Claude", "%LOCALAPPDATA%\\\\Claude-Data"],\r
+      "label": "check_first",\r
+      "what": "Claude desktop app data: settings, logs, extensions and caches.",\r
+      "reclaim": "Caches inside can go with the app closed; settings and extensions are needed by the app.",\r
+      "candidate": false,\r
+      "descend": true,\r
+      "examples": { "match": ["%APPDATA%\\\\Claude\\\\logs"], "no_match": ["%TEMP%\\\\claude"] }\r
+    },\r
+    {\r
+      "id": "steam-library",\r
+      "category": "installed-apps",\r
+      "match": ["**\\\\steamapps\\\\common"],\r
+      "label": "check_first",\r
+      "what": "Installed Steam games.",\r
+      "reclaim": "Uninstall games you do not play from the Steam library. Steam can download them again.",\r
+      "candidate": true,\r
+      "descend": true,\r
+      "examples": { "match": ["D:\\\\SteamLibrary\\\\steamapps\\\\common\\\\Some Game"], "no_match": ["D:\\\\SteamLibrary\\\\steamapps\\\\workshop"] }\r
+    },\r
+    {\r
+      "id": "personal-documents",\r
+      "category": "personal",\r
+      "match": ["%USERPROFILE%\\\\Documents", "%USERPROFILE%\\\\Desktop", "%USERPROFILE%\\\\Pictures", "%USERPROFILE%\\\\Videos", "%USERPROFILE%\\\\Music", "%USERPROFILE%\\\\OneDrive", "%USERPROFILE%\\\\OneDrive - *"],\r
+      "label": "check_first",\r
+      "what": "Your personal files.",\r
+      "reclaim": "Only you can decide. Move large files you want to keep to another drive, delete what you do not need.",\r
+      "notes": "DiskDelta never labels anything inside a personal folder as safe to remove.",\r
+      "cap_inside": "check_first",\r
+      "candidate": false,\r
+      "descend": true,\r
+      "examples": { "match": ["%USERPROFILE%\\\\Videos\\\\Captures\\\\clip.mp4", "%USERPROFILE%\\\\OneDrive\\\\Documents"], "no_match": ["%USERPROFILE%\\\\AppData"] }\r
+    },\r
+    {\r
+      "id": "personal-downloads",\r
+      "category": "personal",\r
+      "match": ["%USERPROFILE%\\\\Downloads"],\r
+      "label": "check_first",\r
+      "what": "Your downloads. Often holds old installers and archives you no longer need.",\r
+      "reclaim": "Sort by size or date and delete what you do not need. Installers can usually be downloaded again.",\r
+      "cap_inside": "check_first",\r
+      "candidate": true,\r
+      "descend": true,\r
+      "examples": { "match": ["%USERPROFILE%\\\\Downloads\\\\setup-tool-2.1.exe"], "no_match": ["%USERPROFILE%\\\\Documents"] }\r
+    },\r
+    {\r
+      "id": "container-user-profile",\r
+      "category": "container",\r
+      "match": ["%USERPROFILE%", "?:\\\\Users"],\r
+      "label": "check_first",\r
+      "what": "User profile folder. Holds personal folders and app data.",\r
+      "reclaim": "Look at the folders inside.",\r
+      "inherit": false,\r
+      "candidate": false,\r
+      "descend": true,\r
+      "examples": { "match": ["%USERPROFILE%", "C:\\\\Users"], "no_match": ["%USERPROFILE%\\\\.zephyrtool"] }\r
+    },\r
+    {\r
+      "id": "container-app-data",\r
+      "category": "container",\r
+      "match": ["%USERPROFILE%\\\\AppData", "%LOCALAPPDATA%", "%APPDATA%", "%USERPROFILE%\\\\AppData\\\\LocalLow", "%PROGRAMDATA%", "%LOCALAPPDATA%\\\\Packages", "%LOCALAPPDATA%\\\\Microsoft", "%APPDATA%\\\\Microsoft"],\r
+      "label": "check_first",\r
+      "what": "App data folder. Each app keeps its own folder inside.",\r
+      "reclaim": "Look at the folders inside; each belongs to an app.",\r
+      "inherit": false,\r
+      "candidate": false,\r
+      "descend": true,\r
+      "examples": { "match": ["%LOCALAPPDATA%", "%LOCALAPPDATA%\\\\Packages"], "no_match": ["%LOCALAPPDATA%\\\\Fooware"] }\r
+    },\r
+    {\r
+      "id": "container-drive-root",\r
+      "category": "container",\r
+      "match": ["?:"],\r
+      "label": "check_first",\r
+      "what": "Top of the drive.",\r
+      "reclaim": "Look at the folders inside.",\r
+      "inherit": false,\r
+      "candidate": false,\r
+      "descend": true,\r
+      "examples": { "match": ["C:\\\\", "D:\\\\"], "no_match": ["D:\\\\Renders"] }\r
+    }\r
+  ]\r
+}\r
+`;var Ee=["TEMP","LOCALAPPDATA","APPDATA","USERPROFILE","PROGRAMDATA","PROGRAMFILES","PROGRAMFILES(X86)","WINDIR","SYSTEMDRIVE"];function Be(o){let e=r=>{let n=Object.keys(o).find(a=>a.toUpperCase()===r);return n?o[n]:void 0},t={};for(let r of Ee){let n=e(r);!n&&r==="TEMP"&&(n=e("TMP")),!n&&r==="WINDIR"&&(n=e("SYSTEMROOT")),n&&(t[r]=D(n))}return t}var Re=o=>o.replace(/[.+^${}()|[\]\\?]/g,"\\$&");function Fe(o){return o==="**"?{t:"any"}:o.includes("*")?{t:"glob",re:new RegExp("^"+o.split("*").map(Re).join(".*")+"$","i")}:{t:"lit",v:o.toLowerCase()}}function Te(o,e){let t=o.split("\\").filter(s=>s.length>0),r=t[0],n=t.slice(1).map(Fe),a=/^%(.+)%$/.exec(r);if(a){let s=e[a[1].toUpperCase()];if(!s)return[];let l=[{segs:[...I(s).map(p=>({t:"lit",v:p.toLowerCase()})),...n],floating:!1}],d=e.USERPROFILE?I(e.USERPROFILE):null,c=I(s);if(d&&d.length===3&&d[1].toLowerCase()==="users"&&c.length>=3&&d.every((p,f)=>c[f]?.toLowerCase()===p.toLowerCase())){let p=[{t:"drive"},{t:"lit",v:"users"},{t:"glob",re:/^.*$/},...c.slice(3).map(f=>({t:"lit",v:f.toLowerCase()}))];l.push({segs:[...p,...n],floating:!1})}return l}return r==="?:"?[{segs:[{t:"drive"},...n],floating:!1}]:r==="**"?[{segs:[{t:"any"},...n],floating:!0}]:[]}function Ie(o,e){switch(o.t){case"lit":return o.v===e.toLowerCase();case"glob":return o.re.test(e);case"drive":return/^[a-z]:$/i.test(e);case"any":return!0}}function ne(o,e,t=0,r=0){if(t===o.length)return r===e.length;let n=o[t];if(n.t==="any"){for(let a=r;a<=e.length;a++)if(ne(o,e,t+1,a))return!0;return!1}return r>=e.length?!1:Ie(n,e[r])&&ne(o,e,t+1,r+1)}function Oe(o,e,t){let r=o.toLowerCase();if(r.length<4)return null;let n=r.slice(0,3),a=Array.from(new Set(e.map(i=>i.toLowerCase()).concat(r))).filter(i=>i.startsWith(n));if(a.length<t)return null;let s=a[0];for(let i of a){let l=0;for(;l<s.length&&l<i.length&&s[l]===i[l];)l++;s=s.slice(0,l)}return s.length<3?null:{prefix:o.slice(0,s.length),count:a.length}}var ve=new Set(["microsoft","google","mozilla","adobe","apple","jetbrains","nvidia","nvidia corporation","intel","amd","bravesoftware","packages","programs"]);function ze(o,e){let t=I(o),r=[];for(let a of["LOCALAPPDATA","APPDATA","PROGRAMDATA","PROGRAMFILES","PROGRAMFILES(X86)"])e[a]&&r.push(e[a]);e.USERPROFILE&&r.push(D(e.USERPROFILE+"\\AppData\\LocalLow"));let n=null;for(let a of r){let s=I(a);t.length>s.length&&s.every((i,l)=>i.toLowerCase()===t[l].toLowerCase())&&(!n||s.length>n.length)&&(n=s)}if(n){let a=t[n.length],s=t[n.length+1],i=a.toLowerCase();return i==="packages"&&s?s.replace(/_[a-z0-9]{13}$/i,""):i==="programs"&&s?s:ve.has(i)&&s?`${a} ${s}`:a}if(t.length>=6&&t[1].toLowerCase()==="users"&&t[3].toLowerCase()==="appdata"&&/^(local|roaming|locallow)$/i.test(t[4])){let a=t[5],s=a.toLowerCase();return(s==="packages"||s==="programs")&&t[6]?s==="packages"?t[6].replace(/_[a-z0-9]{13}$/i,""):t[6]:ve.has(s)&&t[6]?`${a} ${t[6]}`:a}if(e.USERPROFILE){let a=I(e.USERPROFILE);if(t.length>a.length&&a.every((s,i)=>s.toLowerCase()===t[i].toLowerCase())){let s=t[a.length];if(s.startsWith(".")&&s.length>1)return s.slice(1)}}return null}var K=class{constructor(e,t){this.file=e;this.roots=Be(t),e.rules.forEach((r,n)=>{for(let a of r.match)for(let s of Te(a,this.roots)){let i=s.segs.filter(l=>l.t==="lit").length;this.compiled.push({rule:r,index:n,segs:s.segs,floating:s.floating,literals:i})}})}file;compiled=[];roots;get size(){return this.file.rules.length}classify(e,t={}){let r=D(e),n=I(r),a=[];for(let m of this.compiled){let g=m.rule.inherit!==!1&&m.rule.kind!=="sibling_group";for(let v=n.length;v>=1&&!(v<n.length&&!g);v--)if(ne(m.segs,n.slice(0,v))){if(m.rule.kind==="sibling_group"){let A=t.siblingNames?Oe(n[v-1],t.siblingNames,m.rule.min_siblings??5):null;if(!A)continue;a.push({c:m,depth:v,group:A})}else a.push({c:m,depth:v});break}}let s=Math.min(...a.filter(m=>m.c.rule.label==="do_not_touch").map(m=>m.depth),1/0),i=a.filter(m=>!(m.c.floating&&m.c.rule.label!=="do_not_touch"&&m.depth>s));i.sort((m,g)=>g.depth-m.depth||g.c.literals-m.c.literals||m.c.index-g.c.index);let l=i[0],d=a.find(m=>m.c.rule.cap_inside),c=ze(r,this.roots);if(!l)return{path:r,label:"check_first",known:!1,ruleId:null,category:null,what:c?`Unknown folder, probably belongs to ${c}.`:"Unknown folder. DiskDelta has no rule for it.",reclaim:c?`Check what ${c} is before removing anything; prefer its own uninstall or cleanup option.`:"Check what it is before removing anything.",notes:"",command:null,owner:c,matchedPath:null,capped:!1,candidate:!0,descend:!0};let p=l.c.rule,f=p.label,w=!1;f==="safe"&&d&&(f=d.c.rule.cap_inside,w=!0);let y=D(n.slice(0,l.depth).join("\\")),b=p.what;l.group&&(b=`${p.what} (${l.group.count} folders starting with "${l.group.prefix}")`);let u=p.notes??"";return w&&(u=[u,"Inside a personal folder, so it is not labelled safe even though this kind of folder usually is."].filter(Boolean).join(" ")),{path:r,label:f,known:!0,ruleId:p.id,category:p.category,what:b,reclaim:p.reclaim,command:p.command??null,notes:u,owner:c,matchedPath:/^[A-Z]:$/.test(y)?y+"\\":y,capped:w,candidate:f!=="do_not_touch"&&p.candidate!==!1,descend:p.descend===!0||l.depth<n.length,...l.group?{group:l.group}:{}}}};var oe={USERPROFILE:"C:\\Users\\demo",LOCALAPPDATA:"C:\\Users\\demo\\AppData\\Local",APPDATA:"C:\\Users\\demo\\AppData\\Roaming",TEMP:"C:\\Users\\demo\\AppData\\Local\\Temp",PROGRAMDATA:"C:\\ProgramData",PROGRAMFILES:"C:\\Program Files","PROGRAMFILES(X86)":"C:\\Program Files (x86)",WINDIR:"C:\\Windows",SYSTEMDRIVE:"C:"},h=1024**3,ae=1024**2,se=864e5;function Me(o){let e=2166136261;for(let t=0;t<o.length;t++)e=Math.imul(e^o.charCodeAt(t),16777619);return e>>>0}function _e(o){let e=o;return()=>{e=e+1831565813>>>0;let t=e;return t=Math.imul(t^t>>>15,t|1),t^=t+Math.imul(t^t>>>7,t|61),((t^t>>>14)>>>0)/4294967296}}var G="Users\\demo\\AppData\\Local\\Temp",R="Users\\demo\\AppData\\Local",Y="Users\\demo\\AppData\\Roaming",L="Users\\demo",Ne=["8f3k2a","1a9b0c","x7y6z5","q2w3e4","r5t6y7","u8i9o0","p1a2s3","d4f5g6","h7j8k9","l0z1x2","c3v4b5","n6m7q8","w9e8r7","t6y5u4","i3o2p1","a0s9d8","f7g6h5","j4k3l2","z1x0c9","v8b7n6","m5q4w3","e2r1t0","y9u8i7","o6p5a4","s3d2f1","g0h9j8","k7l6z5","x4c3v2","b1n0m9","q8w7e6","r5t4y3","u2i1o0","p9a8s7","d6f5g4","h3j2k1","l0z9x8"],Ue=[{dir:"Windows\\System32",count:420,total:8.4*h,created:[300,900],ext:".dll"},{dir:"Windows\\System32\\drivers",count:160,total:.6*h,created:[300,900],ext:".sys"},{dir:"Windows\\WinSxS",count:380,total:9.2*h,created:[200,900],ext:".cab"},{dir:"Windows\\Installer",count:40,total:3.1*h,created:[90,700],ext:".msi"},{dir:"Windows\\SoftwareDistribution\\Download",count:24,total:2.4*h,created:[4,21],ext:".esd"},{dir:"Windows\\Temp",count:30,total:.35*h,created:[1,9],ext:".tmp"},{dir:"$Recycle.Bin\\S-1-5-21-1000",count:18,total:2.2*h,created:[2,26],ext:".zip"},{dir:"Program Files\\Contoso Office",count:260,total:4.1*h,created:[200,400],ext:".dll"},{dir:"Program Files\\Fictional Photo Studio",count:180,total:3*h,created:[150,300],ext:".dll"},{dir:"Program Files\\Northwind Player",count:60,total:.45*h,created:[9,10],ext:".dll"},{dir:"Program Files\\nodejs\\node_modules\\npm",count:90,total:.04*h,created:[60,61],ext:".js"},{dir:"Program Files (x86)\\Common Files",count:120,total:1.1*h,created:[300,800],ext:".dll"},{dir:"ProgramData\\Package Cache",count:30,total:3.2*h,created:[100,500],ext:".msi"},{dir:"ProgramData\\Microsoft\\Windows\\WER\\ReportArchive",count:40,total:.8*h,created:[1,28],ext:".wer"},{dir:"ProgramData\\Zentrix Labs\\sync",count:70,total:1.3*h,created:[2,18],ext:".dat"},{dir:`${G}`,count:45,total:.55*h,created:[0,40],ext:".tmp"},{dir:`${G}\\claude\\session-a\\scratchpad`,count:30,total:.42*h,created:[0,1],ext:".json"},{dir:`${G}\\claude\\session-b\\tasks`,count:20,total:.21*h,created:[0,2],ext:".log"},...Ne.map((o,e)=>({dir:`${G}\\vitest-${o}`,count:12,total:(35+e%7*9)*ae,created:[1+e%25,1+e%25],ext:".js"})),...["k2j3h4l5","a8xyzq01","0b7c6d5e","zz91kq2p","w4e5r6t7","y8u9i0o1","h2g3f4d5"].map((o,e)=>({dir:`${G}\\tmp${o}`,count:4,total:(18+e*4)*ae,created:[3+e*2,3+e*2],ext:".whl"})),{dir:`${R}\\Docker\\wsl\\disk`,count:1,total:48.6*h,created:[210,210],modified:[0,0],names:["docker_data.vhdx"]},{dir:`${R}\\Packages\\CanonicalGroupLimited.Ubuntu22.04LTS_79rhkp1fndgsc\\LocalState`,count:1,total:22.3*h,created:[330,330],modified:[1,1],names:["ext4.vhdx"]},{dir:`${R}\\Packages\\Contoso.NotesApp_8wekyb3d8bbwe\\LocalCache`,count:60,total:.9*h,created:[5,50],ext:".db"},{dir:`${R}\\Microsoft\\Edge\\User Data\\Default\\Cache\\Cache_Data`,count:600,total:1.4*h,created:[0,45],ext:""},{dir:`${R}\\Microsoft\\Edge\\User Data\\Default`,count:40,total:.6*h,created:[100,400],modified:[0,3],ext:".db"},{dir:`${R}\\Google\\Chrome\\User Data\\Default\\Cache\\Cache_Data`,count:380,total:.9*h,created:[0,60],ext:""},{dir:`${R}\\npm-cache\\_cacache\\content-v2\\sha512`,count:1200,total:3.1*h,created:[0,200],ext:""},{dir:`${R}\\pip\\cache\\http-v2`,count:300,total:1.2*h,created:[10,300],ext:""},{dir:`${R}\\uv\\cache\\archive-v0`,count:500,total:4.6*h,created:[0,35],ext:""},{dir:`${R}\\Programs\\Microsoft VS Code`,count:140,total:.62*h,created:[6,7],ext:".dll"},{dir:`${R}\\Fooware\\data`,count:90,total:2.3*h,created:[1,20],ext:".pak"},{dir:`${R}\\CrashDumps`,count:6,total:.9*h,created:[2,40],ext:".dmp"},{dir:`${R}\\D3DSCache`,count:80,total:.3*h,created:[0,100],ext:""},{dir:`${Y}\\Claude\\vm_bundles\\claudevm.bundle`,count:1,total:9.6*h,created:[40,40],modified:[0,0],names:["rootfs.vhdx"]},{dir:`${Y}\\Claude\\logs`,count:12,total:.05*h,created:[0,30],ext:".log"},{dir:`${Y}\\Slack\\Cache\\Cache_Data`,count:300,total:.7*h,created:[0,90],ext:""},{dir:`${Y}\\Code\\CachedData`,count:200,total:.9*h,created:[6,120],ext:""},{dir:`${L}\\.ollama\\models\\manifests\\registry.ollama.ai\\library`,count:4,total:2e-5*h,created:[3,100],ext:""},{dir:`${L}\\.cache\\huggingface\\hub\\models--some-org--some-model`,count:6,total:6.3*h,created:[60,61],ext:".safetensors"},{dir:`${L}\\.lmstudio\\models\\some-org\\some-model-GGUF`,count:1,total:7.9*h,created:[8,8],names:["some-model-Q4_K_M.gguf"]},{dir:`${L}\\.nuget\\packages`,count:400,total:2.1*h,created:[100,600],ext:".nupkg"},{dir:`${L}\\.vscode\\extensions`,count:300,total:1.1*h,created:[6,300],ext:".js"},{dir:`${L}\\Documents\\projects\\webapp\\node_modules`,count:2500,total:.65*h,created:[15,16],ext:".js"},{dir:`${L}\\Documents\\projects\\webapp\\src`,count:80,total:.004*h,created:[15,200],modified:[0,15],ext:".ts"},{dir:`${L}\\Documents\\Reports`,count:40,total:.3*h,created:[5,700],ext:".docx"},{dir:`${L}\\Videos\\Captures`,count:14,total:6.5*h,created:[0,27],ext:".mp4"},{dir:`${L}\\Pictures\\Camera Roll`,count:2400,total:12.4*h,created:[40,1500],ext:".jpg"},{dir:`${L}\\Downloads`,count:26,total:3.4*h,created:[1,400],ext:".exe"},{dir:`${L}\\Desktop`,count:12,total:.08*h,created:[2,300],ext:".lnk"},{dir:"dev\\shop-api\\node_modules",count:3e3,total:.9*h,created:[3,4],ext:".js"},{dir:"dev\\shop-api\\src",count:120,total:.003*h,created:[3,400],modified:[0,3],ext:".ts"},{dir:"dev\\ml\\.venv\\Lib\\site-packages",count:1500,total:5.6*h,created:[20,21],ext:".pyd"}],$e=[{dir:"Renders\\final",count:40,total:31*h,created:[1,29],ext:".mov"},{dir:"Renders\\archive",count:120,total:88*h,created:[100,600],ext:".mov"},{dir:"SteamLibrary\\steamapps\\common\\Some Game",count:300,total:61*h,created:[200,210],modified:[3,3],ext:".pak"},{dir:"Backups\\2025",count:12,total:210*h,created:[300,330],ext:".img"},{dir:"Projects\\video-edit",count:60,total:14*h,created:[5,80],ext:".prproj"},{dir:"$Recycle.Bin\\S-1-5-21-1000",count:6,total:4.1*h,created:[1,12],ext:".mov"}],je=[{dir:"Photos 2024",count:800,total:9.5*h,created:[300,600],ext:".jpg"},{dir:"Transfer",count:5,total:3.2*h,created:[2,6],ext:".zip"}];function z(o,e){let t=o;for(let r of e.split("\\").filter(Boolean)){let n=t.dirs.get(r.toLowerCase());n||(n={name:r,dirs:new Map,files:[],links:[]},t.dirs.set(r.toLowerCase(),n)),t=n}return t}function ie(o,e,t,r){let n={name:o,dirs:new Map,files:[],links:[]};for(let a of e){let s=z(n,a.dir),i=_e(Me(o+a.dir)),l=Array.from({length:a.count},()=>.3+i()),d=l.reduce((c,p)=>c+p,0);for(let c=0;c<a.count;c++){let p=a.created[0]+i()*(a.created[1]-a.created[0]),f=a.modified??a.created,w=f[0]+i()*(f[1]-f[0]);w>p&&(w=p);let y=a.names?.[c]??`${(a.ext?"file":"f_")+String(c+1).padStart(4,"0")}${a.ext??""}`;s.files.push({name:y,size:Math.round(a.total*l[c]/d),created:Math.round(t-p*se-i()*36e5),modified:Math.round(t-w*se-i()*6e5)})}}return r?.(n),n}function Ge(o){return ie("C:\\",Ue,o,e=>{let t=n=>o-n*se;e.files.push({name:"pagefile.sys",size:Math.round(16*h),created:t(420),modified:t(.2)},{name:"hiberfil.sys",size:Math.round(12.7*h),created:t(420),modified:t(.9)},{name:"swapfile.sys",size:256*ae,created:t(420),modified:t(.2)}),z(e,`${L}\\.ollama\\models\\blobs`).files.push({name:"sha256-6a0746a1ec1a",size:Math.round(4.7*h),created:t(3),modified:t(3)},{name:"sha256-2bada8a74506",size:Math.round(8.1*h),created:t(12),modified:t(12)},{name:"sha256-dde5aa3fc5ff",size:Math.round(2*h),created:t(100),modified:t(100)},{name:"sha256-96c415656d37",size:Math.round(19*h),created:t(25),modified:t(25)}),z(e,"System Volume Information").skip="access_denied",z(e,"Windows\\System32\\config").skip="access_denied",z(e,`${R}\\ElevatedDiagnostics`).skip="access_denied",z(e,`${L}\\Documents\\projects\\webapp\\node_modules\\.cache\\deeply-nested-generated-folder-name-that-goes-on`).skip="path_too_long",z(e,`${L}\\Documents`).links.push("My Music","My Pictures","My Videos"),z(e,`${L}`).links.push("Application Data","Local Settings")})}function We(o){return ie("D:\\",$e,o)}function Ve(o){return ie("E:\\",je,o)}var X=class{constructor(e=Date.now,t=0){this.clock=e;this.delayMs=t}clock;delayMs;name="demo";sizeNote="Demo data: invented files on an invented PC. Allocated size is shown equal to size.";trees=new Map;tree(e){let t=e.toUpperCase();if(!this.trees.has(t)){let r=this.clock(),n=t==="C"?Ge(r):t==="D"?We(r):t==="E"?Ve(r):null;if(!n)return null;this.trees.set(t,n)}return this.trees.get(t)}async scan(e,t,r={}){let n=D(e),a=Date.now(),s=I(n),i=this.tree(s[0][0]);for(let p of s.slice(1))i=i?.dirs.get(p.toLowerCase())??null;if(!i){let p=new Error(`ENOENT: no such folder in the demo PC: ${n}`);throw p.code="ENOENT",p}let l={root:n,scanner:this.name,folders:0,files:0,bytes:0,allocatedBytes:0,links:0,skipped:0,hardLinkDuplicates:0,cancelled:!1,startedAt:a,finishedAt:0},d=0,c=async(p,f,w)=>{if(!r.signal?.aborted){++d%20===0&&(await new Promise(y=>setTimeout(y,1+this.delayMs)),r.onProgress?.({root:n,folders:l.folders,files:l.files,bytes:l.bytes,skipped:l.skipped,links:l.links,current:w,elapsedMs:Date.now()-a}));for(let y of p.files)l.files++,l.bytes+=y.size,l.allocatedBytes+=y.size,t.file({dirId:f,name:y.name,size:y.size,allocated:y.size,created:y.created,modified:y.modified});for(let y of p.links)l.links++,t.link(f,y);for(let y of p.dirs.values()){let b=w.endsWith("\\")?w+y.name:`${w}\\${y.name}`;if(y.skip){l.skipped++,t.skipped({path:b,kind:"folder",reason:y.skip,detail:y.skip==="access_denied"?"EPERM":"ENAMETOOLONG"});continue}l.folders++,await c(y,t.folder(f,y.name),b)}}};return l.folders=1,await c(i,t.folder(-1,n),n),l.cancelled=!!r.signal?.aborted,l.finishedAt=Date.now(),r.onProgress?.({root:n,folders:l.folders,files:l.files,bytes:l.bytes,skipped:l.skipped,links:l.links,current:n,elapsedMs:l.finishedAt-a}),l}},Z=class{async list(){return[{root:"C:\\",letter:"C",label:"Windows",type:"fixed",fileSystem:"NTFS",size:476*h,free:Math.round(31.4*h),scanByDefault:!0},{root:"D:\\",letter:"D",label:"Data",type:"fixed",fileSystem:"NTFS",size:931*h,free:Math.round(482*h),scanByDefault:!0},{root:"E:\\",letter:"E",label:"USB DRIVE",type:"removable",fileSystem:"exFAT",size:58*h,free:Math.round(44.9*h),scanByDefault:!0},{root:"G:\\",letter:"G",label:"Google Drive",type:"cloud",fileSystem:"FAT32",size:100*h,free:Math.round(63.2*h),scanByDefault:!1},{root:"Z:\\",letter:"Z",label:"media",type:"network",fileSystem:"NTFS",size:3600*h,free:Math.round(1210*h),remotePath:"\\\\nas\\media",scanByDefault:!1}]}};var le="0.1.0";var F=(o,e)=>o===null||o===""?e:Number(o);async function xe(o,e,t){let{method:r,path:n,query:a}=t,s=(i,l)=>({status:200,body:i,...l?{type:l}:{}});try{if(r==="GET"&&n==="/api/state")return s({mode:o.mode,version:e.version,rules:o.rulesCount,job:o.job(),scans:o.scans(),exportSuggestion:{md:o.suggestedExportPath("md",e.env),html:o.suggestedExportPath("html",e.env)}});if(r==="GET"&&n==="/api/drives")return s(await o.listDrives());if(r==="POST"&&n==="/api/scan"){let d=t.body?.targets;if(!Array.isArray(d)||d.some(c=>typeof c!="string"))throw new k("targets must be a list of paths.");return s(o.startScan(d))}if(r==="POST"&&n==="/api/cancel")return s({cancelled:o.cancelScan()});let i=a.get("path")??"",l=F(a.get("days"),30);if(r==="GET")switch(n){case"/api/folder":return s(o.folder(i,{days:l,limit:F(a.get("limit"),500)}));case"/api/grew":return s(o.whatGrew(i,{days:l,limit:F(a.get("limit"),50)}));case"/api/timeline":return s(o.timeline(i,{days:l}));case"/api/timeline-day":return s(o.timelineDay(i,{age:F(a.get("age"),1),limit:F(a.get("limit"),10)}));case"/api/changed":return s(o.changedOld(i,{days:l,limit:F(a.get("limit"),50)}));case"/api/largest":return s(o.largestFiles(i,{limit:F(a.get("limit"),100)}));case"/api/treemap":return s(o.treemap(i,{days:l,depth:F(a.get("depth"),2),maxChildren:F(a.get("max"),40)}));case"/api/cleanup":return s(o.cleanupPlan(i,{days:l,limit:F(a.get("limit"),50)}));case"/api/explain":return s(o.explain(i,{days:l}));case"/api/skipped":return s(o.skipped({limit:F(a.get("limit"),500)}));case"/api/report":{let d=a.get("format")==="html"?"html":"md";return s(await o.report(d,{days:l}),d==="html"?"text/plain; charset=utf-8":"text/markdown; charset=utf-8")}}if(r==="POST"&&n==="/api/export"){if(!e.allowExport)throw new k("Saving to a path is not available in the browser demo.");let d=t.body??{},c=d.format==="html"?"html":d.format==="md"?"md":null;if(!c)throw new k("format must be md or html.");if(typeof d.path!="string")throw new k("path is required.");return s(await o.exportReport(c,d.path,{days:Number(d.days??30)}))}return null}catch(i){return i instanceof k?{status:400,body:{error:i.message}}:{status:500,body:{error:"Unexpected error.",detail:i instanceof Error?i.message:String(i)}}}}var ce=class{async save(e){return{id:"browser-demo",root:e.root,createdAt:e.createdAt,bytes:0}}async list(){return[]}async load(){throw new Error("The browser demo keeps no snapshots.")}},ke=new J({mode:"demo",drives:new Z,scanner:new X(Date.now,120),rules:new K(JSON.parse(ye),oe),snapshots:new ce});globalThis.DISKDELTA_STATIC={version:le,async api(o,e,t,r){return await xe(ke,{version:le,env:oe,allowExport:!1},{method:o,path:e,query:new URLSearchParams(t),body:r})??{status:404,body:{error:"Not found."}}},onEvent(o){return ke.onEvent(o)}};})();
+</script>
+<script nonce="diskdelta-demo">
+"use strict";
+(() => {
+  const TOKEN = new URLSearchParams(location.search).get("t") || "";
+  // Set by the static browser demo (docs/demo): the same API, answered in the page instead of by a local server.
+  const STATIC = window.DISKDELTA_STATIC || null;
+  const state = {
+    view: "drives", days: 30, mode: "live", drives: [], scans: [], job: null, root: null,
+    sizePath: null, sizeSort: { key: "bytes", dir: "desc" }, colorBy: "label", fmt: "md",
+    exportSuggestion: { md: "", html: "" }, stopped: false,
+    open: new Set(), sunPath: null, tlAge: null, tlTable: false, sunTable: false, scanSeq: 0, animKey: null, drivesAnimated: false,
+  };
+
+  // ---------- helpers ----------
+  const UNITS = ["bytes", "KB", "MB", "GB", "TB", "PB"];
+  function fmtBytes(n) {
+    if (!isFinite(n) || n < 0) return "unknown";
+    if (n < 1000) return n + (n === 1 ? " byte" : " bytes");
+    let v = n, i = 0;
+    while (v >= 1000 && i < UNITS.length - 1) { v /= 1024; i++; }
+    return v.toFixed(v >= 100 ? 0 : v >= 10 ? 1 : 2) + " " + UNITS[i];
+  }
+  const fmtCount = (n) => Math.round(n).toLocaleString("en-US");
+  function fmtDur(ms) {
+    const s = Math.round(ms / 1000);
+    if (s < 60) return s + "s";
+    const m = Math.floor(s / 60);
+    if (m < 60) return m + "m " + String(s % 60).padStart(2, "0") + "s";
+    return Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m";
+  }
+  const day = (iso) => (iso ? iso.slice(0, 10) : "unknown");
+  const LABELS = { safe: "Safe to remove", check_first: "Check first", do_not_touch: "Do not touch", unknown: "Unknown, check first" };
+  const labelKey = (r) => (r.known === false ? "unknown" : r.label);
+
+  function h(tag, attrs, ...kids) {
+    const el = document.createElement(tag);
+    if (attrs) for (const [k, v] of Object.entries(attrs)) {
+      if (v === null || v === undefined || v === false) continue;
+      if (k === "class") el.className = v;
+      else if (k === "text") el.textContent = v;
+      else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+      else if (k === "dataset") Object.assign(el.dataset, v);
+      else el.setAttribute(k, v === true ? "" : String(v));
+    }
+    for (const c of kids.flat()) if (c !== null && c !== undefined && c !== false) el.append(c.nodeType ? c : document.createTextNode(String(c)));
+    return el;
+  }
+  /** A path that wraps only after a backslash. */
+  function pathNode(p) {
+    const s = h("span");
+    const parts = p.split("\\");
+    parts.forEach((part, i) => { s.append(part + (i < parts.length - 1 ? "\\" : "")); if (i < parts.length - 1) s.append(h("wbr")); });
+    return s;
+  }
+  let hovered = null;
+  function setHover(el) { if (hovered && hovered !== el) hovered.classList.remove("hover"); hovered = el; if (el) el.classList.add("hover"); }
+  const chip = (r) => h("span", { class: "chip " + labelKey(r), text: LABELS[labelKey(r)] });
+  const td = (cls, ...kids) => h("td", { class: cls || null }, ...kids);
+  const view = document.getElementById("view");
+
+  async function api(path, params, opts) {
+    if (STATIC) {
+      const q = {};
+      if (params) for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null) q[k] = String(v);
+      const r = await STATIC.api((opts && opts.method) || "GET", path, q, opts && opts.body ? JSON.parse(opts.body) : undefined);
+      if (r.status >= 400) throw new Error((r.body && r.body.error) || ("Error " + r.status));
+      return r.body;
+    }
+    const url = new URL(path, location.origin);
+    if (params) for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
+    const res = await fetch(url, Object.assign({ headers: { "X-DiskDelta-Token": TOKEN, "Content-Type": "application/json" }, cache: "no-store" }, opts || {}));
+    const type = res.headers.get("content-type") || "";
+    const body = type.includes("json") ? await res.json() : await res.text();
+    if (!res.ok) throw new Error((body && body.error) || ("HTTP " + res.status));
+    return body;
+  }
+  const post = (path, body) => api(path, null, { method: "POST", body: JSON.stringify(body || {}) });
+
+  function section(title, sub, right, ...body) {
+    return h("section", { class: "section" },
+      h("div", { class: "head" }, h("h2", { text: title }), sub ? h("span", { class: "sub", text: sub }) : null, right ? h("div", { class: "right" }, right) : null),
+      ...body);
+  }
+  function errorBox(e) { return h("div", { class: "note stopped", role: "alert", text: String(e && e.message || e) }); }
+
+  /** A sortable, keyboard-navigable table. cols: {key, title, num, cls, render(row), sort(row)} */
+  function grid(cols, rows, opts) {
+    opts = opts || {};
+    const sort = opts.sort;
+    const thead = h("thead", null, h("tr", null, cols.map((c) => {
+      const th = h("th", { class: c.num ? "num" : null, scope: "col" });
+      if (sort && c.sortable !== false && c.sort) {
+        if (sort.key === c.key) th.setAttribute("aria-sort", sort.dir === "asc" ? "ascending" : "descending");
+        th.append(h("button", { type: "button", text: c.title, onclick: () => opts.onSort(c.key) }));
+      } else th.textContent = c.title;
+      return th;
+    })));
+    let list = rows.slice();
+    if (sort) {
+      const col = cols.find((c) => c.key === sort.key);
+      if (col && col.sort) list.sort((a, b) => {
+        const x = col.sort(a), y = col.sort(b);
+        const r = typeof x === "string" ? x.localeCompare(y) : x - y;
+        return sort.dir === "asc" ? r : -r;
+      });
+    }
+    const tbody = h("tbody");
+    for (const r of list) {
+      const tr = h("tr", null, cols.map((c) => { const cell = td((c.num ? "num " : "") + (c.cls || ""), c.render(r)); return cell; }));
+      if (opts.onOpen && (!opts.canOpen || opts.canOpen(r))) {
+        tr.classList.add("clickable");
+        tr.tabIndex = 0;
+        tr.addEventListener("click", (ev) => { if (ev.target.closest("button,a")) return; opts.onOpen(r); });
+        tr.addEventListener("keydown", (ev) => {
+          if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); opts.onOpen(r); }
+          else if (ev.key === "ArrowDown") { ev.preventDefault(); let n = tr.nextElementSibling; while (n && n.tabIndex < 0) n = n.nextElementSibling; if (n) n.focus(); }
+          else if (ev.key === "ArrowUp") { ev.preventDefault(); let n = tr.previousElementSibling; while (n && n.tabIndex < 0) n = n.previousElementSibling; if (n) n.focus(); }
+        });
+      }
+      tbody.append(tr);
+    }
+    if (!list.length) tbody.append(h("tr", null, h("td", { class: "empty", colspan: cols.length, text: opts.empty || "Nothing to show." })));
+    return h("div", { class: "table-scroll" }, h("table", { class: "grid" }, thead, tbody));
+  }
+
+  // ---------- cached API: answers only change after a scan, so routine clicks never refetch ----------
+  const cache = new Map();
+  function cached(path, params) {
+    const key = path + "?" + JSON.stringify(params || {});
+    if (!cache.has(key)) cache.set(key, api(path, params).catch((e) => { cache.delete(key); throw e; }));
+    return cache.get(key);
+  }
+  const reduceMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const SVGNS = "http://www.w3.org/2000/svg";
+  function svgEl(tag, attrs, text) {
+    const el = document.createElementNS(SVGNS, tag);
+    if (attrs) for (const [k, v] of Object.entries(attrs)) if (v !== null && v !== undefined && v !== false) el.setAttribute(k, String(v));
+    if (text !== undefined) el.textContent = text;
+    return el;
+  }
+  const within = (p, root) => { const a = p.toLowerCase(), b = root.toLowerCase(); return a === b || a.startsWith(b.endsWith("\\") ? b : b + "\\"); };
+  const parentOf = (p) => { const i = p.lastIndexOf("\\"); if (i < 0) return null; return i <= 2 ? p.slice(0, 3) : p.slice(0, i); };
+  const shortDate = (iso) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+  // ---------- tooltip shared by the charts ----------
+  const tip = document.getElementById("tip");
+  function showTip(lines, x, y) {
+    tip.replaceChildren(...lines.map((l, i) => h("div", { class: i === 0 ? "tip-title" : "tip-line" }, l)));
+    tip.classList.remove("hidden");
+    const r = tip.getBoundingClientRect();
+    const left = Math.min(window.innerWidth - r.width - 12, x + 14);
+    const top = y + 16 + r.height > window.innerHeight ? y - r.height - 12 : y + 16;
+    tip.style.left = Math.max(8, left) + "px";
+    tip.style.top = Math.max(8, top) + "px";
+  }
+  function showTipAt(el, lines) { const r = el.getBoundingClientRect(); showTip(lines, r.left + r.width / 2, r.top + r.height / 2); }
+  const hideTip = () => tip.classList.add("hidden");
+
+  // ---------- reclaim actions ----------
+  function copyBtn(text) {
+    const b = h("button", { class: "btn small", type: "button", text: "Copy", "aria-label": "Copy command " + text });
+    b.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => { b.textContent = "Copied"; setTimeout(() => (b.textContent = "Copy"), 1200); }, () => {});
+    });
+    return b;
+  }
+  function commandOf(reclaim) {
+    const ok = /^([a-z][\w.-]*( [\w.<>=:\\/-]+)*)$/i.test(reclaim.split(/[(;]/)[0].trim()) && /^(npm|pnpm|yarn|pip|uv|conda|ollama|docker|dotnet|go|cargo|wsl|powercfg|Dism|huggingface-cli|gradle) /i.test(reclaim);
+    return ok ? reclaim.split(/ \(|;|\. /)[0] : null;
+  }
+  const firstSentence = (s) => { const m = s.match(/^.*?\.(\s|$)/); return m ? m[0].trim() : s; };
+  function reclaimNode(r, compact) {
+    const cmd = r.command || commandOf(r.reclaim || "");
+    if (!cmd) return h("span", { class: "reclaim-text", text: compact ? firstSentence(r.reclaim || "") : r.reclaim });
+    const rest = r.reclaim.startsWith(cmd) ? r.reclaim.slice(cmd.length).replace(/^[.;]?\s*/, "") : r.reclaim;
+    return h("span", { class: "reclaim" }, h("code", { class: "cmd", text: cmd }), " ", copyBtn(cmd), rest && !compact ? h("div", { class: "muted", text: rest }) : null);
+  }
+
+  // ---------- plain names for folders ----------
+  function plainName(r) {
+    const segs = r.path.split("\\").filter(Boolean);
+    const last = segs[segs.length - 1] || r.path;
+    const parent = segs[segs.length - 2];
+    if (r.scope === "group") return r.groupCount + " temp folders named " + last;
+    if (r.scope === "rest") return "Smaller folders in " + last;
+    if (r.scope === "own") return "Files directly in " + last;
+    if (r.known === false) return r.owner ? r.owner + " (unknown app)" : last;
+    if (r.category === "personal" || r.category === "container") return parent && segs.length > 1 ? last + " in " + parent : last;
+    const t = (r.what || "").split(/:|\s\(|\.\s|\.$/)[0].trim();
+    return t || last;
+  }
+  function whatLine(r, title) {
+    const w = (r.what || "").replace(/\s\(\d+ folders starting with .*\)$/, "");
+    if (title && w.toLowerCase().startsWith(title.toLowerCase())) {
+      const rest = w.slice(title.length).replace(/^[\s:,(]+/, "").replace(/\)\.?$/, ".").trim();
+      return rest.length > 1 ? rest[0].toUpperCase() + rest.slice(1) : "";
+    }
+    return w;
+  }
+  const colorKey = (n) => (n.other ? "other" : n.category === "personal" ? "personal" : n.category === "container" ? "container" : labelKey(n));
+  const COLOR_NAMES = { safe: "Safe to remove", check_first: "Check first", do_not_touch: "Do not touch", unknown: "Unknown", personal: "Personal files", container: "Holds other folders", other: "Other and small items" };
+  function legend(keys) { return h("div", { class: "legend" }, keys.map((k) => h("span", { class: "sw-" + k, text: COLOR_NAMES[k] }))); }
+  function viewToggle(key, label) {
+    return h("div", { class: "seg", role: "group", "aria-label": label + ": show as" },
+      h("button", { type: "button", "aria-pressed": String(!state[key]), text: "Chart", onclick: () => { state[key] = false; render(); } }),
+      h("button", { type: "button", "aria-pressed": String(!!state[key]), text: "Table", onclick: () => { state[key] = true; render(); } }));
+  }
+
+  // ---------- header controls ----------
+  const tabs = Array.from(document.querySelectorAll("#tabs button"));
+  tabs.forEach((b) => b.addEventListener("click", () => go(b.dataset.view)));
+  document.getElementById("tabs").addEventListener("keydown", (ev) => {
+    if (ev.key !== "ArrowRight" && ev.key !== "ArrowLeft") return;
+    const enabled = tabs.filter((b) => !b.disabled);
+    const i = enabled.indexOf(document.activeElement);
+    if (i < 0) return;
+    const n = enabled[(i + (ev.key === "ArrowRight" ? 1 : enabled.length - 1)) % enabled.length];
+    n.focus(); go(n.dataset.view);
+  });
+  function setTabs() {
+    const has = state.scans.length > 0 && !(state.job && state.job.state === "running");
+    for (const b of tabs) {
+      b.disabled = b.dataset.view !== "drives" && !has;
+      b.setAttribute("aria-selected", String(b.dataset.view === state.view));
+      b.tabIndex = b.dataset.view === state.view ? 0 : -1;
+    }
+    view.setAttribute("aria-labelledby", "tab-" + state.view);
+    document.getElementById("export-btn").disabled = !has;
+    const sel = document.getElementById("root-select");
+    document.getElementById("root-label").classList.toggle("hidden", !has || state.scans.length < 2 || state.view === "drives");
+    sel.replaceChildren(...state.scans.map((s) => h("option", { value: s.root, text: s.root, selected: s.root === state.root })));
+  }
+  function setRoot(root) { state.root = root; state.sizePath = root; state.sunPath = root; state.tlAge = null; }
+  document.getElementById("root-select").addEventListener("change", (ev) => { setRoot(ev.target.value); render(); });
+  const daySeg = Array.from(document.querySelectorAll("#days-seg button"));
+  const daysCustom = document.getElementById("days-custom");
+  function setDays(d) {
+    state.days = d;
+    state.tlAge = null;
+    daySeg.forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.days) === d)));
+    if ([7, 30, 90].includes(d)) daysCustom.value = "";
+    if (state.view !== "drives") render();
+  }
+  daySeg.forEach((b) => b.addEventListener("click", () => setDays(Number(b.dataset.days))));
+  daysCustom.addEventListener("change", () => {
+    const n = Math.round(Number(daysCustom.value));
+    if (n >= 1 && n <= 365) setDays(n); else daysCustom.value = "";
+  });
+
+  function go(v) {
+    state.view = v;
+    render();
+  }
+  /** Opens one of the Details expanders on the overview and scrolls to it. */
+  async function openDetails(key) {
+    state.open.add(key);
+    state.view = "overview";
+    await render();
+    const d = document.getElementById("details-" + key);
+    if (d) d.scrollIntoView({ block: "start", behavior: reduceMotion() ? "auto" : "smooth" });
+  }
+
+  // ---------- drives view ----------
+  function ringSvg(pct, full, size, animate, label) {
+    const r = size / 2 - 6, c = 2 * Math.PI * r;
+    const svg = svgEl("svg", { width: size, height: size, viewBox: "0 0 " + size + " " + size, class: "ring" + (animate ? " draw" : ""), role: "img", "aria-label": label });
+    svg.append(svgEl("circle", { cx: size / 2, cy: size / 2, r, class: "ring-track" }));
+    const arc = svgEl("circle", { cx: size / 2, cy: size / 2, r, class: "ring-fill" + (full ? " full" : ""), "stroke-dasharray": c, "stroke-dashoffset": c * (1 - Math.min(100, pct) / 100), transform: "rotate(-90 " + size / 2 + " " + size / 2 + ")" });
+    arc.style.setProperty("--c", String(c));
+    svg.append(arc);
+    svg.append(svgEl("text", { x: size / 2, y: size / 2 + 2, class: "ring-pct", "text-anchor": "middle", "dominant-baseline": "middle" }, Math.round(pct) + "%"));
+    return svg;
+  }
+
+  async function renderDrives() {
+    let drives;
+    try { drives = state.drives = await api("/api/drives"); } catch (e) { return [errorBox(e)]; }
+    const animate = !state.drivesAnimated && !reduceMotion();
+    state.drivesAnimated = true;
+    const local = drives.filter((d) => d.scanByDefault);
+    const TYPE = { fixed: "Internal drive", removable: "Removable drive", network: "Network drive", cloud: "Cloud drive", optical: "Optical drive", ram: "RAM disk", unknown: "Drive" };
+    const scanned = (d) => state.scans.find((s) => s.root.toLowerCase() === d.root.toLowerCase());
+    const card = (d) => {
+      const sc = scanned(d);
+      return h("article", { class: "drive" + (d.scanByDefault ? "" : " remote") },
+        ringSvg(d.usedPct, d.usedPct >= 90, 92, animate, d.root + " " + d.usedPct + "% used"),
+        h("div", { class: "drive-info" },
+          h("div", { class: "drive-name" }, h("span", { class: "drive-letter", text: d.letter + ":" }), h("span", { class: "drive-label", text: d.label || "No label" })),
+          h("div", { class: "drive-type" }, TYPE[d.type] || d.type, d.remotePath ? h("span", { class: "mono", text: "  " + d.remotePath }) : null),
+          h("div", { class: "drive-free" }, h("span", { class: "drive-free-num", text: fmtBytes(d.free) }), h("span", { class: "muted", text: " free of " + fmtBytes(d.size) })),
+          h("div", { class: "drive-used", text: fmtBytes(d.used) + " used" + (sc ? "  \u00B7  scanned " + sc.finishedAt.slice(11, 16) + " UTC" : d.scanByDefault ? "" : "  \u00B7  not scanned by default") })),
+        h("div", { class: "drive-actions" },
+          h("button", { class: "btn", type: "button", text: sc ? "Scan again" : "Scan " + d.letter + ":", onclick: () => startScan([d.root]) }),
+          sc ? h("button", { class: "btn link", type: "button", text: "View results", onclick: () => { setRoot(sc.root); go("overview"); } }) : null));
+    };
+    // the earlier drive table, kept as a detail (with multi-select)
+    const selected = new Set(local.map((d) => d.root));
+    const scanSel = h("button", { class: "btn", type: "button", text: "Scan selected", onclick: () => startScan(Array.from(selected)) });
+    const cols = [
+      { key: "sel", title: "", render: (d) => h("label", { class: "check" }, h("input", { type: "checkbox", "aria-label": "Select " + d.root, checked: selected.has(d.root), onchange: (ev) => { ev.target.checked ? selected.add(d.root) : selected.delete(d.root); scanSel.disabled = selected.size === 0; } })) },
+      { key: "drive", title: "Drive", cls: "name", render: (d) => d.root },
+      { key: "label", title: "Label", render: (d) => d.label || h("span", { class: "faint", text: "No label" }) },
+      { key: "type", title: "Type", render: (d) => d.type },
+      { key: "size", title: "Size", num: true, render: (d) => fmtBytes(d.size) },
+      { key: "used", title: "Used", num: true, render: (d) => fmtBytes(d.used) },
+      { key: "free", title: "Free", num: true, render: (d) => fmtBytes(d.free) },
+      { key: "pct", title: "Used %", num: true, render: (d) => d.usedPct.toFixed(1) + "%" },
+    ];
+    const folderInput = h("input", { class: "text mono folder-input", type: "text", placeholder: state.mode === "demo" ? "C:\\Users\\demo\\AppData" : "C:\\Users\\you\\AppData", "aria-label": "Folder to scan", spellcheck: "false" });
+    const folderErr = h("span", { class: "error", role: "alert" });
+    const scanFolder = () => { const p = folderInput.value.trim(); if (!/^[a-zA-Z]:[\\/]?/.test(p)) { folderErr.textContent = "Type a full path, for example C:\\Users"; return; } folderErr.textContent = ""; startScan([p]); };
+    folderInput.addEventListener("keydown", (ev) => { if (ev.key === "Enter") scanFolder(); });
+    const pending = [];
+    return [
+      h("section", { class: "intro" },
+        h("h1", { class: "display", text: "What got added, and what is it?" }),
+        h("p", { class: "lead", text: "Scan your drives to see what was created recently, what takes the space, and what is safe to clean up. DiskDelta only reads; it never deletes anything." }),
+        h("div", { class: "row" },
+          h("button", { class: "btn primary big", type: "button", disabled: local.length === 0, text: "Scan all local drives", onclick: () => startScan(local.map((d) => d.root)) }),
+          h("span", { class: "muted", text: local.map((d) => d.letter + ":").join("  ") + (drives.length > local.length ? "  (network and cloud drives only when you pick them)" : "") }))),
+      h("div", { class: "drive-grid" }, drives.map(card)),
+      h("section", { class: "block" }, h("div", { class: "block-head" }, h("h2", { text: "Scan one folder" })),
+        h("div", { class: "row" }, folderInput, h("button", { class: "btn", type: "button", text: "Scan folder", onclick: scanFolder }), folderErr)),
+      h("section", { class: "block details-block no-head" },
+        detailsItem("drivetable", "Drive table", drives.length + " drives, choose several to scan", async () => [h("div", { class: "row pad" }, scanSel), grid(cols, drives, { empty: "No drives found." })], pending)),
+    ];
+  }
+
+  async function startScan(targets) {
+    try {
+      const j = await post("/api/scan", { targets });
+      if (state.handledJobId === j.id) return;
+      if (!state.job || state.job.id !== j.id) state.job = j;
+      state.lastJobError = null;
+      render();
+    } catch (e) { alertBanner(e); }
+  }
+
+  // The progress screen is built once per target and then updated in place (keeps focus on Cancel, lets the bar animate).
+  let progressEls = null;
+  function renderProgress() {
+    const j = state.job;
+    const target = j.targets[j.index] || "";
+    const stat = (k) => { const v = h("div", { class: "v", text: "0" }); return [h("div", { class: "stat" }, h("div", { class: "k", text: k }), v), v]; };
+    const [sFiles, vFiles] = stat("Files"), [sFolders, vFolders] = stat("Folders"), [sBytes, vBytes] = stat("Size so far"), [sSkip, vSkip] = stat("Skipped"), [sTime, vTime] = stat("Elapsed"), [sPct, vPct] = stat("Of used space");
+    const fill = h("div");
+    const bar = h("div", { class: "progress", role: "progressbar", "aria-label": "Scan progress", "aria-valuemin": 0, "aria-valuemax": 100 }, fill);
+    const cur = h("div", { class: "current-path", text: "Starting" });
+    const title = h("h2", { text: "Scanning " + target });
+    const sub = h("span", { class: "sub", text: j.targets.length > 1 ? (j.index + 1) + " of " + j.targets.length : "" });
+    const cancel = h("button", { class: "btn", type: "button", text: "Cancel", onclick: () => { cancel.disabled = true; cancel.textContent = "Cancelling"; post("/api/cancel").catch(alertBanner); } });
+    const node = h("section", { class: "section", id: "progress-view" },
+      h("div", { class: "head" }, title, sub, h("div", { class: "right" }, cancel)),
+      h("div", { class: "body" }, h("div", { class: "stats" }, sFiles, sFolders, sBytes, sSkip, sTime, sPct), h("div", { class: "progress-wrap" }, bar), cur));
+    progressEls = { jobId: j.id, index: j.index, vFiles, vFolders, vBytes, vSkip, vTime, vPct, sPct, bar, fill, cur, target };
+    updateProgress(j);
+    return [node];
+  }
+  function updateProgress(j) {
+    const e = progressEls, p = j.progress;
+    const drive = state.drives.find((d) => d.root.toLowerCase() === e.target.toLowerCase());
+    const pct = p && drive && drive.used > 0 ? Math.min(99, (100 * p.bytes) / drive.used) : null;
+    e.vFiles.textContent = p ? fmtCount(p.files) : "0";
+    e.vFolders.textContent = p ? fmtCount(p.folders) : "0";
+    e.vBytes.textContent = p ? fmtBytes(p.bytes) : "0 bytes";
+    e.vSkip.textContent = p ? fmtCount(p.skipped) : "0";
+    e.vTime.textContent = p ? fmtDur(p.elapsedMs) : "0s";
+    e.sPct.classList.toggle("hidden", pct === null);
+    e.vPct.textContent = pct === null ? "" : Math.round(pct) + "%";
+    e.bar.classList.toggle("indeterminate", pct === null);
+    if (pct === null) { e.bar.removeAttribute("aria-valuenow"); e.fill.style.transform = ""; }
+    else { e.bar.setAttribute("aria-valuenow", String(Math.round(pct))); e.fill.style.transform = "scaleX(" + (pct / 100) + ")"; }
+    e.cur.textContent = p ? p.current : "Starting";
+    e.cur.title = p ? p.current : "";
+  }
+
+  // ---------- overview ----------
+  function insightCard(r) {
+    const title = plainName(r);
+    const line = whatLine(r, title);
+    return h("article", { class: "insight" },
+      h("div", { class: "insight-top" }, h("h3", { text: title }), chip(r)),
+      h("div", { class: "insight-num" }, h("span", { class: "plus", text: "+" + fmtBytes(r.newBytes) }), h("span", { class: "unit", text: " new" })),
+      r.changedBytes ? h("div", { class: "insight-sub", text: fmtBytes(r.changedBytes) + " of older files changed, growth unknown" }) : null,
+      line ? h("p", { class: "insight-what", text: line }) : null,
+      h("div", { class: "insight-path" }, pathNode(r.path)),
+      h("div", { class: "insight-action" }, reclaimNode(r, true)),
+      h("div", { class: "insight-foot" }, h("button", { class: "btn link", type: "button", text: "Open folder", onclick: () => { state.sizePath = r.path.replace(/\\[^\\]*\*$/, ""); openDetails("size"); } })));
+  }
+
+  function timelineChart(root, days, animate) {
+    const wrap = h("div", { class: "tl" });
+    const chartBox = h("div", { class: "tl-chart" });
+    const dayPanel = h("div", { class: "tl-day", "aria-live": "polite" });
+    wrap.append(chartBox, h("p", { class: "chart-note", text: "Only new files are counted. Older files that changed are not in this chart, because how much they grew is unknown." }), dayPanel);
+    cached("/api/timeline", { path: root, days }).then((tl) => {
+      const bars = tl.bars;
+      const max = Math.max(1, ...bars.map((b) => b.newBytes));
+      const barLabel = (b) => (b.age === 1 ? "Last 24 hours" : shortDate(b.start) + " to " + shortDate(b.end)) + ": " + fmtBytes(b.newBytes) + " in " + fmtCount(b.newFiles) + " new files";
+      const showDay = async (age) => {
+        if (!age) { dayPanel.replaceChildren(h("p", { class: "muted", text: "Select a bar to see which folders its new files went to." })); return; }
+        dayPanel.replaceChildren(h("p", { class: "muted", text: "Loading..." }));
+        try {
+          const d = await cached("/api/timeline-day", { path: root, age, limit: 8 });
+          const head = (age === 1 ? "Last 24 hours" : shortDate(d.start) + " to " + shortDate(d.end)) + ": " + fmtBytes(d.total.newBytes) + " in " + fmtCount(d.total.newFiles) + " new files";
+          dayPanel.replaceChildren(h("h3", { class: "day-head", text: head }),
+            d.rows.length ? h("ul", { class: "day-list" }, d.rows.map((r) => h("li", null,
+              h("span", { class: "day-size", text: fmtBytes(r.newBytes) }),
+              h("span", { class: "day-name" }, h("span", { class: "day-title", text: plainName(r) }), h("span", { class: "day-path" }, pathNode(r.path))),
+              chip(r),
+              h("button", { class: "btn link", type: "button", text: "Open", onclick: () => { state.sizePath = r.path.replace(/\\[^\\]*\*$/, ""); openDetails("size"); } })))) : h("p", { class: "muted", text: "No new files in this period." }));
+        } catch (e) { dayPanel.replaceChildren(errorBox(e)); }
+      };
+      const select = (age) => { state.tlAge = age; draw(false); showDay(age); };
+      const draw = (anim) => {
+        if (state.tlTable) {
+          chartBox.replaceChildren(grid([
+            { key: "when", title: "Period", render: (b) => (b.age === 1 ? "Last 24 hours" : shortDate(b.start) + " to " + shortDate(b.end)) },
+            { key: "bytes", title: "New files, size", num: true, render: (b) => (b.newBytes ? fmtBytes(b.newBytes) : h("span", { class: "faint", text: "-" })) },
+            { key: "files", title: "New files", num: true, render: (b) => fmtCount(b.newFiles) },
+          ], bars.slice().reverse(), { onOpen: (b) => select(b.age), empty: "No days." }));
+          return;
+        }
+        const W = Math.max(320, chartBox.clientWidth || 900), H = 230, padL = 64, padR = 8, padT = 12, padB = 28;
+        const iw = W - padL - padR, ih = H - padT - padB, n = bars.length, bw = iw / n, gap = Math.min(4, bw * 0.28);
+        const svg = svgEl("svg", { width: W, height: H, viewBox: "0 0 " + W + " " + H, class: "tl-svg" + (anim ? " draw" : ""), role: "group", "aria-label": "New files per day for the last " + days + " days. Arrow keys move between days, Enter shows which folders grew." });
+        for (const f of [0, 0.5, 1]) {
+          const y = padT + ih - ih * f;
+          svg.append(svgEl("line", { x1: padL, x2: W - padR, y1: y, y2: y, class: f === 0 ? "axis-line" : "grid-line" }));
+          svg.append(svgEl("text", { x: padL - 10, y: y + 4, class: "axis", "text-anchor": "end" }, f === 0 ? "0" : fmtBytes(max * f)));
+        }
+        const step = Math.max(1, Math.ceil(64 / bw));
+        const groups = [];
+        bars.forEach((b, i) => {
+          const x = padL + i * bw;
+          const bh = b.newBytes > 0 ? Math.max(2, (ih * b.newBytes) / max) : 0;
+          const g = svgEl("g", { class: "bar-g" + (b.age === state.tlAge ? " sel" : ""), tabindex: -1, role: "button", "aria-label": barLabel(b), "aria-pressed": String(b.age === state.tlAge) });
+          g.append(svgEl("rect", { x, y: padT, width: bw, height: ih, class: "bar-hit" }));
+          if (bh > 0) {
+            const bar = svgEl("rect", { x: x + gap / 2, y: padT + ih - bh, width: Math.max(1, bw - gap), height: bh, rx: Math.min(3, (bw - gap) / 2), class: "bar" });
+            bar.style.animationDelay = Math.round((i / n) * 100) + "ms";
+            g.append(bar);
+          }
+          g.addEventListener("mousemove", (ev) => showTip([barLabel(b)], ev.clientX, ev.clientY));
+          g.addEventListener("mouseleave", hideTip);
+          g.addEventListener("click", () => select(b.age));
+          g.addEventListener("focus", () => showTipAt(g, [barLabel(b)]));
+          g.addEventListener("blur", hideTip);
+          g.addEventListener("keydown", (ev) => {
+            let j = i;
+            if (ev.key === "ArrowRight") j = Math.min(n - 1, i + 1); else if (ev.key === "ArrowLeft") j = Math.max(0, i - 1);
+            else if (ev.key === "Home") j = 0; else if (ev.key === "End") j = n - 1;
+            else if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(b.age); setTimeout(() => chartBox.querySelectorAll(".bar-g")[i]?.focus(), 0); return; }
+            else return;
+            ev.preventDefault();
+            groups[i].tabIndex = -1; groups[j].tabIndex = 0; groups[j].focus();
+          });
+          if ((n - 1 - i) % step === 0) svg.append(svgEl("text", { x: x + bw / 2, y: H - 8, class: "axis", "text-anchor": "middle" }, b.age === 1 ? "24 h" : shortDate(b.end)));
+          groups.push(g);
+          svg.append(g);
+        });
+        const focusIdx = Math.max(0, bars.findIndex((b) => b.age === state.tlAge));
+        (groups[state.tlAge ? focusIdx : n - 1] || groups[0]).tabIndex = 0;
+        chartBox.replaceChildren(svg);
+      };
+      draw(animate);
+      showDay(state.tlAge);
+      let t = null;
+      new ResizeObserver(() => { clearTimeout(t); t = setTimeout(() => { if (!state.tlTable) draw(false); }, 80); }).observe(chartBox);
+    }).catch((e) => chartBox.replaceChildren(errorBox(e)));
+    return wrap;
+  }
+
+  function arcPath(cx, cy, r1, r2, a0, a1) {
+    if (a1 - a0 >= 2 * Math.PI - 1e-6) a1 = a0 + 2 * Math.PI - 1e-4;
+    const large = a1 - a0 > Math.PI ? 1 : 0;
+    const p = (r, a) => (cx + r * Math.sin(a)).toFixed(2) + " " + (cy - r * Math.cos(a)).toFixed(2);
+    return "M" + p(r2, a0) + "A" + r2 + " " + r2 + " 0 " + large + " 1 " + p(r2, a1) + "L" + p(r1, a1) + "A" + r1 + " " + r1 + " 0 " + large + " 0 " + p(r1, a0) + "Z";
+  }
+
+  function sunburst(root, animate) {
+    const wrap = h("div", { class: "sun" });
+    const chartBox = h("div", { class: "sun-chart" });
+    const panel = h("aside", { class: "sun-panel", "aria-live": "polite", "aria-label": "Selected folder" });
+    wrap.append(chartBox, panel);
+    let current = null;
+    const RINGS = 3, MIN_ANGLE = 0.02;
+    const load = (path, how) => cached("/api/treemap", { path, days: state.days, depth: RINGS, max: 40 })
+      .then((node) => { current = node; state.sunPath = node.path; draw(how); showPanel(node); })
+      .catch((e) => chartBox.replaceChildren(errorBox(e)));
+    const goUp = () => { if (!current || current.path.toLowerCase() === root.toLowerCase()) return; load(parentOf(current.path), "out"); };
+    const tipLines = (n, parentBytes) => [n.other ? n.name : n.name, fmtBytes(n.bytes) + (parentBytes ? "  \u00B7  " + ((100 * n.bytes) / parentBytes).toFixed(1) + "% of " + current.name : ""), n.other ? "Files and folders too small to draw" : "New in " + state.days + " days: " + fmtBytes(n.newBytes), n.other ? "" : COLOR_NAMES[colorKey(n)]].filter(Boolean);
+    const slices = (n) => {
+      // merge slices too thin to see into one "other" slice per parent
+      const kids = (n.children || []).filter((c) => c.bytes > 0);
+      const keep = [], small = { name: "Other and small items", path: n.path, bytes: 0, newBytes: 0, other: true };
+      const span = (c) => (c.bytes / n.bytes) * 2 * Math.PI;
+      for (const c of kids) (c.other || span(c) < MIN_ANGLE ? (small.bytes += c.bytes) : keep.push(c));
+      keep.sort((a, b) => b.bytes - a.bytes);
+      if (small.bytes > 0) keep.push(small);
+      return keep;
+    };
+    const draw = (how) => {
+      if (!current) return;
+      if (state.sunTable) {
+        const kids = (current.children || []).filter((c) => !c.other && c.bytes > 0);
+        chartBox.replaceChildren(
+          h("div", { class: "row pad" }, h("span", { class: "muted", text: current.path }), current.path.toLowerCase() !== root.toLowerCase() ? h("button", { class: "btn small", type: "button", text: "Up one level", onclick: goUp }) : null),
+          grid([
+            { key: "name", title: "Folder", cls: "name", render: (c) => c.name },
+            { key: "bytes", title: "Size", num: true, render: (c) => fmtBytes(c.bytes) },
+            { key: "share", title: "Share", num: true, render: (c) => ((100 * c.bytes) / current.bytes).toFixed(1) + "%" },
+            { key: "new", title: "New files", num: true, render: (c) => (c.newBytes ? fmtBytes(c.newBytes) : h("span", { class: "faint", text: "-" })) },
+            { key: "label", title: "Colour", render: (c) => h("span", { class: "sw-inline sw-" + colorKey(c), text: COLOR_NAMES[colorKey(c)] }) },
+          ], kids, { onOpen: (c) => load(c.path, "in"), empty: "No subfolders." }));
+        return;
+      }
+      const S = Math.max(260, Math.min(460, chartBox.clientWidth || 420));
+      const cx = S / 2, cy = S / 2, R = S / 2 - 4, r0 = R * 0.3, ringW = (R - r0) / RINGS;
+      const cls = "sun-svg" + (how === "draw" ? " draw" : how === "in" ? " drill-in" : how === "out" ? " drill-out" : "");
+      const svg = svgEl("svg", { width: S, height: S, viewBox: "0 0 " + S + " " + S, class: cls, role: "group", "aria-label": "Size of " + current.path + " by folder. Tab to the inner ring, arrow keys move, Enter opens a folder, Escape goes up." });
+      const inner = [];
+      const lay = (n, a0, a1, depth) => {
+        const total = n.bytes;
+        let a = a0;
+        for (const c of slices(n)) {
+          const b = a + ((a1 - a0) * c.bytes) / total;
+          const r1 = r0 + (depth - 1) * ringW + 1, r2 = r1 + ringW - 2;
+          const path = svgEl("path", { d: arcPath(cx, cy, r1, r2, a, b), class: "arc sw-" + colorKey(c) + " ring-" + depth });
+          const lines = tipLines(c, n.bytes);
+          path.addEventListener("mousemove", (ev) => showTip(lines, ev.clientX, ev.clientY));
+          path.addEventListener("mouseleave", hideTip);
+          if (!c.other) {
+            path.addEventListener("click", () => { hideTip(); load(c.path, "in"); });
+            if (depth === 1) {
+              path.setAttribute("tabindex", "-1");
+              path.setAttribute("role", "button");
+              path.setAttribute("aria-label", c.name + ", " + fmtBytes(c.bytes) + ", " + COLOR_NAMES[colorKey(c)]);
+              path.addEventListener("focus", () => showTipAt(path, lines));
+              path.addEventListener("blur", hideTip);
+              inner.push({ el: path, node: c });
+            }
+          } else path.classList.add("is-other");
+          svg.append(path);
+          if (depth < RINGS && !c.other && c.children && b - a > MIN_ANGLE) lay(c, a, b, depth + 1);
+          a = b;
+        }
+      };
+      lay(current, 0, 2 * Math.PI, 1);
+      const atRoot = current.path.toLowerCase() === root.toLowerCase();
+      const center = svgEl("g", { class: "sun-center" + (atRoot ? "" : " can-up"), role: atRoot ? null : "button", tabindex: atRoot ? null : 0, "aria-label": atRoot ? null : "Up to " + parentOf(current.path) });
+      center.append(svgEl("circle", { cx, cy, r: r0 - 3 }));
+      const name = current.name.length > 16 ? current.name.slice(0, 15) + "\u2026" : current.name;
+      center.append(svgEl("text", { x: cx, y: cy - 8, class: "c-name", "text-anchor": "middle" }, name));
+      center.append(svgEl("text", { x: cx, y: cy + 14, class: "c-size", "text-anchor": "middle" }, fmtBytes(current.bytes)));
+      if (!atRoot) {
+        center.append(svgEl("text", { x: cx, y: cy + 32, class: "c-up", "text-anchor": "middle" }, "Up"));
+        center.addEventListener("click", goUp);
+        center.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); goUp(); } });
+      }
+      svg.append(center);
+      inner.forEach((it, i) => {
+        it.el.addEventListener("keydown", (ev) => {
+          let j = i;
+          if (ev.key === "ArrowRight" || ev.key === "ArrowDown") j = (i + 1) % inner.length;
+          else if (ev.key === "ArrowLeft" || ev.key === "ArrowUp") j = (i - 1 + inner.length) % inner.length;
+          else if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); hideTip(); load(it.node.path, "in").then(() => chartBox.querySelector('[tabindex="0"]')?.focus()); return; }
+          else if (ev.key === "Escape" || ev.key === "Backspace") { ev.preventDefault(); hideTip(); goUp(); return; }
+          else return;
+          ev.preventDefault();
+          inner[i].el.setAttribute("tabindex", "-1"); inner[j].el.setAttribute("tabindex", "0"); inner[j].el.focus();
+        });
+      });
+      if (inner[0]) inner[0].el.setAttribute("tabindex", "0");
+      chartBox.replaceChildren(svg);
+    };
+    const showPanel = async (node) => {
+      panel.replaceChildren(h("p", { class: "muted", text: "Loading..." }));
+      let e;
+      try { e = await cached("/api/explain", { path: node.path, days: state.days }); } catch (err) { panel.replaceChildren(errorBox(err)); return; }
+      const c = e.classification, s = e.size;
+      const atRoot = node.path.toLowerCase() === root.toLowerCase();
+      panel.replaceChildren(
+        h("div", { class: "panel-kicker", text: atRoot ? "Whole scan" : "Selected folder" }),
+        h("h3", { class: "panel-title", text: node.name }),
+        h("div", { class: "panel-path" }, pathNode(node.path)),
+        h("div", { class: "panel-size", text: fmtBytes(node.bytes) }),
+        s ? h("dl", { class: "panel-facts" },
+          h("dt", { text: "New in " + state.days + " days" }), h("dd", { class: "tnum", text: fmtBytes(s.newBytes) + " (" + fmtCount(s.newFiles) + " files)" }),
+          h("dt", { class: "secondary", text: "Older files changed" }), h("dd", { class: "tnum secondary", text: fmtBytes(s.changedBytes) + ", growth unknown" }),
+          h("dt", { text: "Files" }), h("dd", { class: "tnum", text: fmtCount(s.files) })) : null,
+        h("div", { class: "panel-label" }, chip(c), c.category === "personal" ? h("span", { class: "tag", text: "personal folder" }) : null, c.owner && !c.known ? h("span", { class: "muted", text: " probably " + c.owner }) : null),
+        h("p", { class: "panel-what", text: c.what }),
+        h("div", { class: "panel-reclaim" }, h("div", { class: "panel-kicker", text: "How to reclaim" }), reclaimNode(c, false)),
+        h("div", { class: "row" },
+          atRoot ? null : h("button", { class: "btn small", type: "button", text: "Up one level", onclick: goUp }),
+          h("button", { class: "btn small", type: "button", text: "Open in Size details", onclick: () => { state.sizePath = node.path; openDetails("size"); } })));
+    };
+    const start = state.sunPath && within(state.sunPath, root) ? state.sunPath : root;
+    load(start, animate ? "draw" : null);
+    let t = null;
+    new ResizeObserver(() => { clearTimeout(t); t = setTimeout(() => { if (!state.sunTable) draw(null); }, 80); }).observe(chartBox);
+    return wrap;
+  }
+
+  function detailsItem(key, title, sub, fn, pending) {
+    const body = h("div", { class: "exp-body" });
+    const d = h("details", { class: "exp", id: "details-" + key }, h("summary", null, h("span", { class: "exp-title", text: title }), h("span", { class: "exp-sub", text: sub })), body);
+    const fill = async () => {
+      body.dataset.filled = "1";
+      body.replaceChildren(h("p", { class: "muted pad", text: "Loading..." }));
+      const ns = await fn();
+      body.replaceChildren(...ns.filter(Boolean));
+    };
+    if (state.open.has(key)) { d.open = true; pending.push(fill()); }
+    d.addEventListener("toggle", () => {
+      if (d.open) { state.open.add(key); if (!body.dataset.filled) fill(); }
+      else state.open.delete(key);
+    });
+    return d;
+  }
+
+  async function renderOverview() {
+    const root = state.root, days = state.days;
+    let g;
+    try { g = await cached("/api/grew", { path: root, days, limit: 60 }); } catch (e) { return [errorBox(e)]; }
+    const scan = state.scans.find((s) => s.root === root);
+    const animKey = root + "|" + days + "|" + state.scanSeq;
+    const animate = state.animKey !== animKey && !reduceMotion();
+    state.animKey = animKey;
+    const t = g.total;
+    const top = g.rows.filter((r) => r.newBytes > 0).slice(0, 3);
+    const pending = [];
+    const skippedSub = scan ? fmtCount(scan.skipped) + " folders and files could not be read" : "";
+    const nodes = [
+      h("section", { class: "hero" },
+        h("p", { class: "hero-line" }, t.newBytes > 0
+          ? [h("span", { class: "hero-where", text: root }), " grew ", h("span", { class: "hero-num", text: fmtBytes(t.newBytes) }), " in the last " + days + " days"]
+          : ["No new files on ", h("span", { class: "hero-where", text: root }), " in the last " + days + " days"]),
+        h("p", { class: "hero-sub", text: fmtCount(t.newFiles) + " new files. Separately, " + fmtCount(t.changedFiles) + " older files (" + fmtBytes(t.changedBytes) + ") were changed; how much they grew is unknown." }),
+        scan ? h("p", { class: "hero-meta", text: "Scanned " + scan.finishedAt.slice(0, 16).replace("T", " ") + " UTC  \u00B7  " + fmtBytes(scan.bytes) + " in " + fmtCount(scan.files) + " files  \u00B7  " + skippedSub }) : null),
+      h("section", { class: "block" },
+        h("div", { class: "block-head" }, h("h2", { text: "Biggest growth" }), h("button", { class: "btn link", type: "button", text: "See all " + g.rows.length + " places", onclick: () => openDetails("growth") })),
+        top.length ? h("div", { class: "cards" }, top.map(insightCard)) : h("p", { class: "muted", text: "Nothing new in this window." })),
+      h("section", { class: "block" },
+        h("div", { class: "block-head" }, h("h2", { text: "New files per day" }), h("span", { class: "block-sub", text: "last " + days + " days" }), h("div", { class: "right" }, viewToggle("tlTable", "New files per day"))),
+        timelineChart(root, days, animate)),
+      h("section", { class: "block" },
+        h("div", { class: "block-head" }, h("h2", { text: "What takes the space" }), h("div", { class: "right" }, legend(["safe", "check_first", "do_not_touch", "unknown", "personal", "container", "other"]), viewToggle("sunTable", "What takes the space"))),
+        sunburst(root, animate)),
+      h("section", { class: "block details-block" },
+        h("div", { class: "block-head" }, h("h2", { text: "Details" })),
+        detailsItem("growth", "Recent growth", g.rows.length + " places, ranked by new files", renderGrowthDetails, pending),
+        detailsItem("changed", "Older files changed", "growth amount unknown", renderChangedDetails, pending),
+        detailsItem("size", "Size and folders", state.sizePath && within(state.sizePath, root) ? state.sizePath : root, renderSize, pending),
+        detailsItem("cleanup", "Cleanup candidates", "ranked proposals, nothing is deleted", renderCleanup, pending),
+        detailsItem("skipped", "Skipped", skippedSub, renderSkipped, pending)),
+    ];
+    await Promise.all(pending);
+    return nodes;
+  }
+
+  // ---------- details: the earlier full tables ----------
+  const scopeTag = (r) => r.scope === "own" ? "files directly in this folder" : r.scope === "rest" ? "smaller subfolders together" : r.scope === "group" ? r.groupCount + " folders with this name" : null;
+  async function renderGrowthDetails() {
+    let g;
+    try { g = await cached("/api/grew", { path: state.root, days: state.days, limit: 60 }); } catch (e) { return [errorBox(e)]; }
+    const cols = [
+      { key: "path", title: "Folder", cls: "path", render: (r) => h("span", null, pathNode(r.path), scopeTag(r) ? h("span", { class: "tag", text: scopeTag(r) }) : null), sort: (r) => r.path.toLowerCase() },
+      { key: "newBytes", title: "New files", num: true, render: (r) => r.newBytes ? fmtBytes(r.newBytes) : h("span", { class: "faint", text: "-" }), sort: (r) => r.newBytes },
+      { key: "changedBytes", title: "Older files changed, growth unknown", num: true, cls: "secondary", render: (r) => r.changedBytes ? fmtBytes(r.changedBytes) : h("span", { class: "faint", text: "-" }), sort: (r) => r.changedBytes },
+      { key: "label", title: "Label", render: chip, sort: (r) => labelKey(r) },
+      { key: "what", title: "What it is", cls: "what", render: (r) => r.what },
+    ];
+    const ss = state.growthSort || (state.growthSort = { key: "newBytes", dir: "desc" });
+    return [
+      h("p", { class: "exp-note", text: "New files are files created since " + day(g.windowStart) + ". Older files modified in that time are a separate figure: their full size is known, how much they grew is not. Rows do not overlap; select a row to open the folder." }),
+      grid(cols, g.rows, {
+        sort: ss, onSort: (k) => { state.growthSort = { key: k, dir: ss.key === k && ss.dir === "desc" ? "asc" : "desc" }; render(); },
+        onOpen: (r) => { state.sizePath = r.path.replace(/\\[^\\]*\*$/, ""); openDetails("size"); },
+        empty: "Nothing was created or changed in the last " + state.days + " days.",
+      }),
+    ];
+  }
+  async function renderChangedDetails() {
+    let ch;
+    try { ch = await cached("/api/changed", { path: state.root, days: state.days, limit: 50 }); } catch (e) { return [errorBox(e)]; }
+    const fcols = [
+      { key: "path", title: "File", cls: "path", render: (f) => pathNode(f.path), sort: (f) => f.path.toLowerCase() },
+      { key: "size", title: "Size now", num: true, render: (f) => fmtBytes(f.size), sort: (f) => f.size },
+      { key: "created", title: "Created", num: true, render: (f) => day(f.created), sort: (f) => f.created || "" },
+      { key: "modified", title: "Modified", num: true, render: (f) => day(f.modified), sort: (f) => f.modified },
+    ];
+    const fsort = state.changedSort || (state.changedSort = { key: "size", dir: "desc" });
+    return [
+      h("p", { class: "exp-note", text: "Files of " + fmtBytes(ch.minBytes) + " or more that existed before the window and were modified inside it. Their full size is shown; how much they grew cannot be known from file dates." }),
+      grid(fcols, ch.files, { sort: fsort, onSort: (k) => { state.changedSort = { key: k, dir: fsort.key === k && fsort.dir === "desc" ? "asc" : "desc" }; render(); }, empty: "No large older files were changed in this window." }),
+    ];
+  }
+
+  // ---------- size view ----------
+  function crumbs(path, scanRoot) {
+    const parts = [];
+    let p = path;
+    while (p && p.length >= scanRoot.length) {
+      parts.unshift(p);
+      if (p.toLowerCase() === scanRoot.toLowerCase()) break;
+      const i = p.lastIndexOf("\\");
+      p = i <= 2 ? p.slice(0, 3) : p.slice(0, i);
+      if (parts.includes(p)) break;
+    }
+    const nav = h("nav", { class: "crumbs", "aria-label": "Folder path" });
+    parts.forEach((q, i) => {
+      const name = i === 0 ? q : q.slice(q.lastIndexOf("\\") + 1);
+      if (i > 0) nav.append(h("span", { class: "sep", "aria-hidden": "true", text: "\u203A" }));
+      if (i === parts.length - 1) nav.append(h("span", { class: "cur", "aria-current": "page", text: name }));
+      else nav.append(h("button", { type: "button", text: name, onclick: () => { state.sizePath = q; render(); } }));
+    });
+    return nav;
+  }
+
+  function squarify(items, x, y, w, hgt) {
+    const out = [];
+    const total = items.reduce((s, it) => s + it.value, 0);
+    if (total <= 0 || w <= 0 || hgt <= 0) return out;
+    const scale = (w * hgt) / total;
+    const list = items.map((it) => ({ it, area: it.value * scale }));
+    let rx = x, ry = y, rw = w, rh = hgt;
+    let row = [];
+    const worst = (r, side) => {
+      const s = r.reduce((a, b) => a + b.area, 0);
+      const mx = Math.max(...r.map((q) => q.area)), mn = Math.min(...r.map((q) => q.area));
+      return Math.max((side * side * mx) / (s * s), (s * s) / (side * side * mn));
+    };
+    const layout = (r) => {
+      const s = r.reduce((a, b) => a + b.area, 0);
+      if (rw >= rh) {
+        const cw = s / rh; let cy = ry;
+        for (const q of r) { const ch = q.area / cw; out.push({ it: q.it, x: rx, y: cy, w: cw, h: ch }); cy += ch; }
+        rx += cw; rw -= cw;
+      } else {
+        const chh = s / rw; let cx = rx;
+        for (const q of r) { const cww = q.area / chh; out.push({ it: q.it, x: cx, y: ry, w: cww, h: chh }); cx += cww; }
+        ry += chh; rh -= chh;
+      }
+    };
+    for (const q of list) {
+      const side = Math.min(rw, rh);
+      if (row.length === 0 || worst(row.concat(q), side) <= worst(row, side)) row.push(q);
+      else { layout(row); row = [q]; }
+    }
+    if (row.length) layout(row);
+    return out;
+  }
+
+  function treemap(node, info) {
+    const box = h("div", { class: "treemap", role: "group", "aria-label": "Map of " + node.path + ". Tab moves between folders, Enter opens one." });
+    const describe = (n) => {
+      info.replaceChildren(
+        h("span", null, h("b", { text: n.other ? n.name : n.path })),
+        h("span", { class: "num", text: "Size " + fmtBytes(n.bytes) }),
+        h("span", { class: "num", text: "New in " + state.days + " days: " + fmtBytes(n.newBytes) }),
+        n.changedBytes ? h("span", { class: "num faint", text: "Older files changed: " + fmtBytes(n.changedBytes) + " (growth unknown)" }) : null,
+        n.other ? null : chip(n));
+    };
+    const HEADER = 18;
+    // Draws one tile and, when there is room, its children inside it (up to the depth the API returned).
+    const drawTile = (parentEl, n, r, level) => {
+      const heat = state.colorBy === "growth";
+      const cls = "tile " + (n.other ? "other" : heat ? "heat" : labelKey(n));
+      const tile = h("div", { class: cls });
+      if (level === 1 && !n.other) {
+        tile.tabIndex = 0;
+        tile.setAttribute("role", "button");
+        tile.setAttribute("aria-label", n.name + ", " + fmtBytes(n.bytes) + ", " + LABELS[labelKey(n)]);
+      }
+      tile.style.left = r.x + "px"; tile.style.top = r.y + "px";
+      tile.style.width = Math.max(0, r.w) + "px"; tile.style.height = Math.max(0, r.h) + "px";
+      if (heat && !n.other) {
+        const share = n.bytes > 0 ? Math.min(1, n.newBytes / n.bytes) : 0;
+        const fill = h("div", { class: "heatfill" });
+        fill.style.opacity = String(share > 0 ? 0.12 + 0.68 * share : 0);
+        tile.append(fill);
+      }
+      const roomForName = r.w > 48 && r.h > 17;
+      if (roomForName) tile.append(h("div", { class: "t" }, n.name, r.w > 120 ? h("span", { class: "s", text: fmtBytes(n.bytes) }) : null));
+      const kids = !n.other && n.children ? n.children.filter((c) => c.bytes > 0) : [];
+      if (kids.length && r.w > 36 && r.h > HEADER + 14) {
+        const top = roomForName ? HEADER : 2;
+        const rects = squarify(kids.map((c) => ({ value: c.bytes, node: c })), 2, top, r.w - 6, r.h - top - 4);
+        for (const q of rects) if (q.w >= 2 && q.h >= 2) drawTile(tile, q.it.node, q, level + 1);
+      }
+      if (!n.other) {
+        tile.addEventListener("click", (ev) => { ev.stopPropagation(); state.sizePath = n.path; render(); });
+        tile.addEventListener("mouseover", (ev) => { ev.stopPropagation(); setHover(tile); describe(n); });
+        if (level === 1) {
+          tile.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); state.sizePath = n.path; render(); } });
+          tile.addEventListener("focus", () => describe(n));
+        }
+      } else tile.addEventListener("mouseover", (ev) => { ev.stopPropagation(); setHover(tile); describe(n); });
+      parentEl.append(tile);
+    };
+    const draw = () => {
+      box.replaceChildren();
+      const W = box.clientWidth, H = box.clientHeight;
+      const kids = (node.children || []).filter((c) => c.bytes > 0);
+      const rects = squarify(kids.map((c) => ({ value: c.bytes, node: c })), 0, 0, W, H);
+      for (const r of rects) drawTile(box, r.it.node, r, 1);
+      if (!rects.length) box.append(h("div", { class: "empty", text: "No subfolders to draw." }));
+    };
+    box.addEventListener("mouseleave", () => { setHover(null); describe(node); });
+    requestAnimationFrame(draw);
+    let t = null;
+    new ResizeObserver(() => { clearTimeout(t); t = setTimeout(draw, 60); }).observe(box);
+    describe(node);
+    return box;
+  }
+
+  async function renderSize() {
+    const path = state.sizePath || state.root;
+    let f, tm;
+    try {
+      [f, tm] = await Promise.all([cached("/api/folder", { path, days: state.days, limit: 1000 }), cached("/api/treemap", { path, days: state.days, depth: 3, max: 40 })]);
+    } catch (e) { state.sizePath = state.root; return [errorBox(e)]; }
+    const s = f.self;
+    const up = f.path.toLowerCase() !== f.scanRoot.toLowerCase() ? h("button", { class: "btn small", type: "button", text: "Up one level", onclick: () => { state.sizePath = f.parent; render(); } }) : null;
+    const info = h("div", { class: "tm-info", "aria-live": "polite" });
+    const colorSeg = h("div", { class: "seg", role: "group", "aria-label": "Colour tiles by" },
+      h("button", { type: "button", "aria-pressed": String(state.colorBy === "label"), text: "Label", onclick: () => { state.colorBy = "label"; render(); } }),
+      h("button", { type: "button", "aria-pressed": String(state.colorBy === "growth"), text: "Recent growth", onclick: () => { state.colorBy = "growth"; render(); } }));
+    const legend = state.colorBy === "label"
+      ? h("div", { class: "legend" }, h("span", { class: "safe", text: "Safe to remove" }), h("span", { class: "check_first", text: "Check first" }), h("span", { class: "do_not_touch", text: "Do not touch" }), h("span", { class: "unknown", text: "Unknown" }))
+      : h("div", { class: "legend" }, h("span", { class: "heat0", text: "No new files" }), h("span", { class: "heat1", text: "All files new in the last " + state.days + " days" }));
+    const ss = state.sizeSort;
+    const cols = [
+      { key: "name", title: "Name", cls: "name", render: (r) => r.name, sort: (r) => r.name.toLowerCase() },
+      { key: "bytes", title: "Size", num: true, render: (r) => fmtBytes(r.bytes), sort: (r) => r.bytes },
+      { key: "share", title: "Share", num: true, render: (r) => s.bytes > 0 ? ((100 * r.bytes) / s.bytes).toFixed(1) + "%" : "-", sort: (r) => r.bytes },
+      { key: "newBytes", title: "New", num: true, render: (r) => r.newBytes ? fmtBytes(r.newBytes) : h("span", { class: "faint", text: "-" }), sort: (r) => r.newBytes },
+      { key: "changedBytes", title: "Changed", num: true, render: (r) => r.changedBytes ? fmtBytes(r.changedBytes) : h("span", { class: "faint", text: "-" }), sort: (r) => r.changedBytes },
+      { key: "files", title: "Files", num: true, render: (r) => fmtCount(r.files), sort: (r) => r.files },
+      { key: "label", title: "Label", render: chip, sort: (r) => labelKey(r) },
+      { key: "what", title: "What it is", cls: "what", render: (r) => r.what },
+    ];
+    const table = grid(cols, f.children, {
+      sort: ss, onSort: (k) => { state.sizeSort = { key: k, dir: ss.key === k && ss.dir === "desc" ? "asc" : "desc" }; render(); },
+      onOpen: (r) => { state.sizePath = r.path; render(); }, canOpen: (r) => r.folders > 0 || r.files > 0, empty: "No subfolders.",
+    });
+    const files = new Map();
+    for (const x of f.largeFiles) files.set(x.path, Object.assign({}, x));
+    for (const x of f.recentFiles) files.set(x.path, Object.assign(files.get(x.path) || {}, x));
+    const fileRows = Array.from(files.values());
+    const fcols = [
+      { key: "name", title: "File", cls: "name", render: (x) => x.name, sort: (x) => x.name.toLowerCase() },
+      { key: "size", title: "Size", num: true, render: (x) => fmtBytes(x.size), sort: (x) => x.size },
+      { key: "created", title: "Created", num: true, render: (x) => day(x.created), sort: (x) => x.created || "" },
+      { key: "modified", title: "Modified", num: true, render: (x) => day(x.modified), sort: (x) => x.modified },
+      { key: "kind", title: "In window", render: (x) => x.kind === "new" ? h("span", { class: "kind new", text: "New" }) : x.kind === "changed" ? h("span", { class: "kind", text: "Changed, growth unknown" }) : h("span", { class: "faint", text: "-" }), sort: (x) => x.kind || "" },
+    ];
+    const fsort = state.fileSort || (state.fileSort = { key: "size", dir: "desc" });
+    const ownLine = f.own.files > 0 ? fmtCount(f.own.files) + " files directly in this folder, " + fmtBytes(f.own.bytes) : "No files directly in this folder";
+    return [
+      f.path.toLowerCase() !== f.scanRoot.toLowerCase() ? h("div", { class: "row crumb-row" }, crumbs(f.path, f.scanRoot), up) : null,
+      h("h3", { class: "sub-title", text: f.name }),
+      f.name !== f.path ? h("p", { class: "lead mono-lead" }, pathNode(f.path)) : null,
+      section("This folder", null, chip(s),
+        h("div", { class: "body" },
+          h("dl", { class: "explain" },
+            h("dt", { text: "Size" }), h("dd", { class: "tnum", text: fmtBytes(s.bytes) + "  (" + fmtCount(s.files) + " files, " + fmtCount(s.folders) + " folders)" }),
+            h("dt", { text: "Last " + state.days + " days" }), h("dd", { text: "New " + fmtBytes(s.newBytes) + ", older files changed " + fmtBytes(s.changedBytes) + " (growth unknown)" }),
+            h("dt", { text: "What it is" }), h("dd", { text: s.what }),
+            s.owner ? h("dt", { text: "Probably belongs to" }) : null, s.owner ? h("dd", { text: s.owner }) : null,
+            h("dt", { text: "How to reclaim" }), h("dd", { text: s.reclaim }),
+            s.notes ? h("dt", { text: "Notes" }) : null, s.notes ? h("dd", { text: s.notes }) : null))),
+      section("Map", null, h("div", { class: "row" }, legend, colorSeg), h("div", { class: "body" }, treemap(tm, info), info)),
+      section("Folders", f.children.length + " folders  \u00B7  " + ownLine, null, table),
+      section("Files", "new files and changed older files of " + fmtBytes(f.fileFloorBytes) + " or more, and files of " + fmtBytes(f.largeFileBytes) + " or more", null,
+        grid(fcols, fileRows, { sort: fsort, onSort: (k) => { state.fileSort = { key: k, dir: fsort.key === k && fsort.dir === "desc" ? "asc" : "desc" }; render(); }, empty: "No large or recent files directly in this folder." })),
+    ];
+  }
+
+  // ---------- cleanup view ----------
+  async function renderCleanup() {
+    let p;
+    try { p = await cached("/api/cleanup", { path: state.root, days: state.days, limit: 100 }); } catch (e) { return [errorBox(e)]; }
+    const rank = new Map(p.candidates.map((c, i) => [c, i + 1]));
+    const cols = [
+      { key: "rank", title: "#", num: true, render: (r) => rank.get(r), sort: (r) => rank.get(r) },
+      { key: "path", title: "Folder", cls: "path", render: (r) => h("span", null, pathNode(r.path), r.groupCount ? h("span", { class: "tag", text: r.groupCount + " folders" }) : null, r.scope === "rest" ? h("span", { class: "tag", text: "the rest" }) : null), sort: (r) => r.path.toLowerCase() },
+      { key: "bytes", title: "Size", num: true, render: (r) => fmtBytes(r.bytes), sort: (r) => r.bytes },
+      { key: "newBytes", title: "New files", num: true, render: (r) => r.newBytes ? fmtBytes(r.newBytes) : h("span", { class: "faint", text: "-" }), sort: (r) => r.newBytes },
+      { key: "label", title: "Label", render: chip, sort: (r) => (r.known === false ? 2 : r.label === "safe" ? 0 : 1) },
+      { key: "reclaim", title: "How to reclaim", cls: "wrap what", render: (r) => reclaimNode(r, false) },
+    ];
+    const cs = state.cleanSort || (state.cleanSort = { key: "rank", dir: "asc" });
+    const safeBytes = p.candidates.filter((c) => c.known && c.label === "safe").reduce((a, c) => a + c.bytes, 0);
+    const checkBytes = p.candidates.filter((c) => c.known && c.label === "check_first").reduce((a, c) => a + c.bytes, 0);
+    const stat = (k, v) => h("div", { class: "stat" }, h("div", { class: "k", text: k }), h("div", { class: "v", text: v }));
+    return [
+      h("p", { class: "exp-note", text: "Ranked proposals: safe items first, then items to check, then large folders DiskDelta does not know. Nothing here is deleted by DiskDelta; use each item's own way to reclaim the space. Select a row to open the folder." }),
+      section("Summary", null, null, h("div", { class: "body" }, h("div", { class: "stats" }, stat("Safe to remove", fmtBytes(safeBytes)), stat("Check first", fmtBytes(checkBytes)), stat("Candidates", fmtCount(p.candidates.length))))),
+      section("Candidates", null, null, grid(cols, p.candidates, {
+        sort: cs, onSort: (k) => { state.cleanSort = { key: k, dir: cs.key === k && cs.dir === "asc" ? "desc" : "asc" }; render(); },
+        onOpen: (r) => { state.sizePath = r.path.replace(/\\[^\\]*\*$/, ""); openDetails("size"); }, empty: "No candidates found.",
+      }), h("div", { class: "foot", text: p.note })),
+    ];
+  }
+
+  // ---------- skipped view ----------
+  async function renderSkipped() {
+    let s;
+    try { s = await cached("/api/skipped", { limit: 2000 }); } catch (e) { return [errorBox(e)]; }
+    const reasons = { access_denied: "Access denied", path_too_long: "Path too long", in_use: "In use", not_found: "Gone during the scan", error: "Other error" };
+    const cols = [
+      { key: "path", title: "Path", cls: "path", render: (r) => pathNode(r.path), sort: (r) => r.path.toLowerCase() },
+      { key: "kind", title: "Kind", render: (r) => r.kind, sort: (r) => r.kind },
+      { key: "reason", title: "Reason", render: (r) => reasons[r.reason] || r.reason, sort: (r) => r.reason },
+      { key: "detail", title: "Detail", cls: "faint", render: (r) => r.detail || "" },
+    ];
+    const ks = state.skipSort || (state.skipSort = { key: "path", dir: "asc" });
+    const summary = Object.entries(s.byReason).map(([k, v]) => (reasons[k] || k) + ": " + fmtCount(v)).join("   ");
+    return [
+      h("p", { class: "exp-note", text: "Folders and files DiskDelta could not read. Their sizes are not in the totals. Most are system folders that need admin rights; DiskDelta never asks for them." }),
+      section("Could not be read", fmtCount(s.total) + " items" + (summary ? "  \u00B7  " + summary : ""), null,
+        grid(cols, s.items, { sort: ks, onSort: (k) => { state.skipSort = { key: k, dir: ks.key === k && ks.dir === "asc" ? "desc" : "asc" }; render(); }, empty: "Nothing was skipped." })),
+    ];
+  }
+
+  // ---------- render ----------
+  let renderSeq = 0;
+  async function render() {
+    const seq = ++renderSeq;
+    setTabs();
+    const running = state.job && state.job.state === "running";
+    let nodes;
+    if (running) nodes = renderProgress();
+    else if (state.view === "overview" && state.root) nodes = await renderOverview();
+    else nodes = await renderDrives();
+    if (seq !== renderSeq) return;
+    const banners = [];
+    if (state.stopped) banners.push(h("div", { class: "note stopped", role: "alert", text: "DiskDelta has stopped. Start it again to continue; this page no longer updates." }));
+    if (STATIC) banners.push(h("div", { class: "note", text: "Browser demo: DiskDelta running on a fictional PC with invented folders and files, entirely in this page. Nothing is read from your computer. To scan your own drives, get DiskDelta from northkeellabs.com/diskdelta." }));
+    else if (state.mode === "demo") banners.push(h("div", { class: "note", text: "Demo mode: a fictional PC with invented folders and files. Nothing on your own drives is read." }));
+    if (state.lastJobError) banners.push(h("div", { class: "note stopped", role: "alert", text: state.lastJobError }));
+    const y = window.scrollY;
+    view.replaceChildren(...banners, ...nodes.filter(Boolean));
+    if (!running) window.scrollTo(0, Math.min(y, document.body.scrollHeight));
+  }
+  function alertBanner(e) { state.lastJobError = String(e && e.message || e); render(); }
+
+  // ---------- live updates ----------
+  let lastProgressRender = 0;
+  function onJob(job, isProgress) {
+    if (!job) return;
+    if (job.id === state.handledJobId) return;
+    state.job = job;
+    const showing = progressEls && document.getElementById("progress-view") && progressEls.jobId === job.id && progressEls.index === job.index;
+    if (isProgress) {
+      const now = Date.now();
+      if (now - lastProgressRender < 250) return;
+      lastProgressRender = now;
+      if (showing) updateProgress(job); else render();
+      return;
+    }
+    if (job.state === "running") { state.lastJobError = null; if (!showing) render(); return; }
+    state.handledJobId = job.id;
+    refreshAfterScan(job);
+  }
+  async function refreshAfterScan(job) {
+    const st = await api("/api/state");
+    state.scans = st.scans;
+    state.job = job;
+    if (job.state === "error") state.lastJobError = "Scan failed: " + job.error;
+    const found = state.scans.find((s) => s.root.toLowerCase() === (job.targets[0] || "").toLowerCase()) || state.scans[state.scans.length - 1];
+    cache.clear();
+    state.scanSeq++;
+    if (found) { setRoot(found.root); if (job.state === "done") state.view = "overview"; }
+    if (job.state === "done" && !hashUsed) {
+      hashUsed = true;
+      if (hashParams.view) state.view = hashParams.view;
+      if (hashParams.open) hashParams.open.split(",").forEach((k) => state.open.add(k));
+      if (hashParams.path) state.sizePath = hashParams.path;
+      if (hashParams.sun) state.sunPath = hashParams.sun;
+      if (hashParams.color) state.colorBy = hashParams.color;
+      if (hashParams.tltable) state.tlTable = true;
+      if (hashParams.suntable) state.sunTable = true;
+      if (hashParams.days) setDays(Number(hashParams.days));
+      if (hashParams.tl) {
+        const tl = await cached("/api/timeline", { path: state.root, days: state.days });
+        state.tlAge = hashParams.tl === "max" ? [...tl.bars].sort((a, b) => b.newBytes - a.newBytes)[0].age : Number(hashParams.tl);
+      }
+    }
+    await render();
+    if (job.state === "done" && hashParams.open && hashParams.scrollto) document.getElementById("details-" + hashParams.scrollto)?.scrollIntoView({ block: "start" });
+    if (job.state === "done" && hashParams.export) document.getElementById("export-btn").click();
+  }
+
+  function connectEvents() {
+    if (STATIC) { STATIC.onEvent((e) => onJob(e.job, e.type === "progress")); return; }
+    const es = new EventSource("/api/events?t=" + encodeURIComponent(TOKEN));
+    es.addEventListener("job", (ev) => onJob(JSON.parse(ev.data), false));
+    es.addEventListener("progress", (ev) => onJob(JSON.parse(ev.data), true));
+  }
+
+  let hbFails = 0;
+  if (!STATIC) setInterval(() => {
+    if (state.stopped) return;
+    post("/api/heartbeat").then(() => (hbFails = 0), () => { if (++hbFails >= 2) { state.stopped = true; render(); } });
+  }, 15000);
+  if (!STATIC) post("/api/heartbeat").catch(() => {});
+  if (!STATIC) window.addEventListener("pagehide", () => { navigator.sendBeacon("/api/bye?t=" + encodeURIComponent(TOKEN)); });
+
+  // ---------- export ----------
+  const dlg = document.getElementById("export-dialog");
+  const fmtSeg = Array.from(document.querySelectorAll("#fmt-seg button"));
+  const pathIn = document.getElementById("export-path");
+  const msg = document.getElementById("export-msg");
+  function setFmt(f) {
+    state.fmt = f;
+    fmtSeg.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.fmt === f)));
+    const cur = pathIn.value.trim();
+    if (!cur || cur === state.exportSuggestion.md || cur === state.exportSuggestion.html) pathIn.value = state.exportSuggestion[f];
+    else pathIn.value = cur.replace(/\.(md|html)$/i, "." + f);
+  }
+  fmtSeg.forEach((b) => b.addEventListener("click", () => setFmt(b.dataset.fmt)));
+  document.getElementById("export-btn").addEventListener("click", () => { msg.replaceChildren(); setFmt(state.fmt); dlg.showModal(); pathIn.focus(); pathIn.select(); });
+  document.getElementById("export-cancel").addEventListener("click", () => dlg.close());
+  document.getElementById("export-save").addEventListener("click", async () => {
+    msg.replaceChildren(h("span", { class: "muted", text: "Saving..." }));
+    if (STATIC) {
+      // browser demo: build the report in the page and hand it to the browser as a download
+      try {
+        const text = await api("/api/report", { format: state.fmt, days: state.days });
+        const name = (pathIn.value.trim().split(/[\\/]/).pop() || ("diskdelta-report." + state.fmt)).replace(/[^\w.-]/g, "_");
+        const a = h("a", { download: name });
+        a.href = URL.createObjectURL(new Blob([text], { type: state.fmt === "html" ? "text/html" : "text/markdown" }));
+        document.body.append(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        msg.replaceChildren(h("span", { class: "okmsg", text: "Downloaded " + name + "." }));
+      } catch (e) { msg.replaceChildren(h("span", { class: "error", text: e.message })); }
+      return;
+    }
+    try {
+      const r = await post("/api/export", { format: state.fmt, path: pathIn.value.trim(), days: state.days });
+      msg.replaceChildren(h("span", { class: "okmsg", text: "Saved " + r.path + " (" + fmtBytes(r.bytes) + ")." }));
+    } catch (e) { msg.replaceChildren(h("span", { class: "error", text: e.message })); }
+  });
+  pathIn.addEventListener("keydown", (ev) => { if (ev.key === "Enter") document.getElementById("export-save").click(); });
+
+  // ---------- start ----------
+  // Optional URL fragment for links and screenshots: #scan=C:\,D:\&view=size&path=C:\Users&color=growth&days=7&export=1
+  const hashParams = Object.fromEntries(new URLSearchParams((location.hash || "").slice(1)));
+  let hashUsed = false;
+  (async () => {
+    try {
+      const st = await api("/api/state");
+      state.mode = st.mode; state.scans = st.scans; state.job = st.job; state.exportSuggestion = st.exportSuggestion;
+      if (st.job && st.job.state !== "running") state.handledJobId = st.job.id;
+      if (STATIC) {
+        for (const k of ["md", "html"]) state.exportSuggestion[k] = state.exportSuggestion[k].split("\\").pop();
+        document.querySelector("#export-path").previousElementSibling.textContent = "File name (your browser saves the download)";
+        document.getElementById("export-save").textContent = "Download report";
+      }
+      document.getElementById("ver").textContent = "v" + st.version;
+      document.getElementById("demo-badge").classList.toggle("hidden", st.mode !== "demo");
+      if (st.mode === "demo") document.title = "DiskDelta (demo)";
+      if (state.scans.length) setRoot(state.scans[state.scans.length - 1].root);
+      connectEvents();
+      await render();
+      if (hashParams.scan) startScan(hashParams.scan.split(","));
+    } catch (e) {
+      view.replaceChildren(errorBox(e));
+    }
+  })();
+})();
+</script>
+</body>
+</html>

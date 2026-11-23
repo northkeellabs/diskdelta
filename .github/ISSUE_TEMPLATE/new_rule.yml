@@ -1,0 +1,54 @@
+name: New or changed rule
+description: Ask for a folder to be labelled (or labelled differently). Pull requests with the rule are even better; see CONTRIBUTING.md.
+labels: ["rule"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Write paths with Windows locations instead of your user name, for example `%LOCALAPPDATA%\SomeApp\Cache`.
+  - type: input
+    id: path
+    attributes:
+      label: Folder pattern
+      placeholder: '%LOCALAPPDATA%\SomeApp\Cache'
+    validations:
+      required: true
+  - type: input
+    id: app
+    attributes:
+      label: Which app creates it?
+    validations:
+      required: true
+  - type: dropdown
+    id: label
+    attributes:
+      label: Suggested label
+      options:
+        - safe (rebuilt or re-downloaded when needed)
+        - check_first (the user must decide)
+        - do_not_touch (deleting by hand breaks something)
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What is in it?
+    validations:
+      required: true
+  - type: textarea
+    id: reclaim
+    attributes:
+      label: How to free the space
+      description: Prefer the app's own command or setting.
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: How do you know?
+      description: Documentation link, the app's settings page, or what you tested.
+  - type: textarea
+    id: counter
+    attributes:
+      label: A similar path that must NOT match
+      placeholder: '%LOCALAPPDATA%\SomeApp\Profiles'

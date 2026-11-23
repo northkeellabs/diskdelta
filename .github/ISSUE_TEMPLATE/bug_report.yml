@@ -1,0 +1,55 @@
+name: Bug report
+description: Something in DiskDelta does not work or shows something wrong.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please do not paste your user name, real folder names you consider private, or full scan exports. Replace them with placeholders such as `C:\Users\you\...`.
+  - type: input
+    id: version
+    attributes:
+      label: DiskDelta version
+      description: Output of `diskdelta --version`.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: how
+    attributes:
+      label: How do you run it?
+      options:
+        - Portable exe
+        - npx / npm
+        - MCP server (Claude Desktop, Claude Code or another app)
+        - Built from source
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 24H2
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: If you can, reproduce it with `diskdelta --demo`, which uses a fictional PC.
+      placeholder: |
+        1. Run diskdelta --demo
+        2. Click ...
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Error text or terminal output
+      render: text

@@ -1,0 +1,54 @@
+name: Release
+
+# On a version tag (v0.1.0 and so on): test, build the portable exe and the npm tarball,
+# write SHA-256 checksums, and attach all of them to a GitHub release. Uses only the built-in GITHUB_TOKEN.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Build exe and publish release
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22.15.0
+          cache: npm
+      - name: Tag must match package.json version
+        shell: pwsh
+        run: |
+          $v = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ("v$v" -ne $env:GITHUB_REF_NAME) { throw "Tag $env:GITHUB_REF_NAME does not match package.json version $v" }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run eval
+      - name: Build portable exe, npm tarball and SHA256SUMS.txt
+        run: npm run build:exe
+      - name: Smoke-test the exe
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem dist/release -Filter *.exe | Select-Object -First 1
+          & $exe.FullName --version
+          & $exe.FullName scan 'C:\' --demo --limit 3
+          if ($LASTEXITCODE -ne 0) { throw "exe smoke test failed" }
+      - name: Create GitHub release with the exe and checksums
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $files = Get-ChildItem dist/release -File | Where-Object { $_.Extension -in '.exe', '.tgz', '.txt' } | ForEach-Object { $_.FullName }
+          $notes = "Portable Windows exe (unsigned) and npm package for DiskDelta $env:GITHUB_REF_NAME. Check downloads against SHA256SUMS.txt."
+          gh release create $env:GITHUB_REF_NAME @files --title "DiskDelta $env:GITHUB_REF_NAME" --notes $notes --verify-tag
