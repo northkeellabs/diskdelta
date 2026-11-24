@@ -31,7 +31,7 @@ DiskDelta is a free, open-source Windows tool that answers that question for you
 
 The exe is not code-signed yet, so Windows SmartScreen may warn you the first time ("Windows protected your PC"). Check the SHA-256 checksum first (`Get-FileHash .\diskdelta-0.1.2-win-x64.exe`), then choose "More info", "Run anyway".
 
-**With Node.js 22 or newer:** (the npm package is not published yet; until it is, clone this repo, run `npm ci` and `npm run build`, and use `node dist/cli.js` wherever `npx diskdelta` appears below)
+**With Node.js 22 or newer:** nothing to download first, `npx` fetches the package from npm and runs it.
 
 ```
 npx diskdelta            # open the page
@@ -64,12 +64,18 @@ All four are marked read-only. There is no tool that deletes, moves or changes a
 }
 ```
 
-With the exe instead of Node, use the full path to the exe as `command` and `["mcp"]` as `args` (backslashes doubled in JSON). Restart Claude Desktop.
+Restart Claude Desktop. Without Node.js, use the portable exe instead: set `command` to the full path of the exe and `args` to `["mcp"]` (backslashes doubled in JSON).
 
 **Claude Code:**
 
 ```
 claude mcp add diskdelta -- npx -y diskdelta mcp
+```
+
+Without Node.js, use the path of the portable exe instead:
+
+```
+claude mcp add diskdelta -- C:\Tools\diskdelta.exe mcp
 ```
 
 Other MCP apps: run `npx -y diskdelta mcp` (or `diskdelta.exe mcp`) as a stdio server. Add `--demo` to try it on the fictional PC.
