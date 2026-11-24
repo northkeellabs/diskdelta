@@ -86,28 +86,42 @@ function tables(d: ReportData): Table[] {
   return out;
 }
 
-const mdCell = (s: string, code: boolean) => {
+// Every mention of the product, the company or its web address is a link, in both formats.
+const PRODUCT_URL = "https://github.com/northkeellabs/diskdelta";
+const COMPANY_URL = "https://northkeellabs.com";
+const MENTION = /(?:https?:\/\/)?northkeellabs\.com(?:\/[\w\-/]*)?|Northkeel Labs|DiskDelta/g;
+const mentionUrl = (t: string) => (t === "DiskDelta" ? PRODUCT_URL : t === "Northkeel Labs" ? COMPANY_URL : /^https?:/.test(t) ? t : "https://" + t);
+/** Replace each mention in already-escaped prose with a link. Paths and other non-prose text must not go through this. */
+const linkMentions = (text: string, link: (label: string, url: string) => string) => text.replace(MENTION, (t) => link(t, mentionUrl(t)));
+const mdLink = (label: string, url: string) => `[${label}](${url})`;
+const htmlLink = (label: string, url: string) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+// Columns holding prose (not paths): the only table cells that get links.
+const PROSE_COLUMNS = new Set(["What it is", "Why", "How to reclaim"]);
+
+const mdCell = (s: string, code: boolean, prose = false) => {
   const t = s.replace(/\|/g, "/").replace(/\r?\n/g, " ");
-  return code ? "`" + t.replace(/`/g, "'") + "`" : t.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  if (code) return "`" + t.replace(/`/g, "'") + "`";
+  const e = t.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return prose ? linkMentions(e, mdLink) : e;
 };
 
 function markdown(d: ReportData): string {
   const lines: string[] = [];
-  lines.push("# DiskDelta report", "");
+  lines.push(`# ${mdLink("DiskDelta", PRODUCT_URL)} report`, "");
   lines.push(`Generated ${d.generatedAt.slice(0, 16).replace("T", " ")} UTC${d.mode === "demo" ? " from DEMO data (a fictional PC)" : ""}. Window: last ${d.days} days. Read-only: nothing was changed.`, "");
   for (const t of tables(d)) {
     lines.push(`## ${t.title}`, "");
-    if (t.intro) lines.push(t.intro, "");
+    if (t.intro) lines.push(linkMentions(t.intro, mdLink), "");
     if (t.rows.length === 0) {
       lines.push(t.empty, "");
       continue;
     }
     lines.push(`| ${t.head.join(" | ")} |`);
     lines.push(`| ${t.right.map((r) => (r ? "---:" : "---")).join(" | ")} |`);
-    for (const r of t.rows) lines.push(`| ${r.map((c, i) => mdCell(c, i === 0)).join(" | ")} |`);
+    for (const r of t.rows) lines.push(`| ${r.map((c, i) => mdCell(c, i === 0, PROSE_COLUMNS.has(t.head[i]))).join(" | ")} |`);
     lines.push("");
   }
-  lines.push("Made with DiskDelta by Northkeel Labs (https://northkeellabs.com/diskdelta).", "");
+  lines.push(linkMentions("Made with DiskDelta by Northkeel Labs (https://northkeellabs.com/diskdelta).", mdLink), "");
   return lines.join("\n");
 }
 
@@ -117,13 +131,13 @@ function html(d: ReportData): string {
   const parts: string[] = [];
   for (const t of tables(d)) {
     parts.push(`<h2>${esc(t.title)}</h2>`);
-    if (t.intro) parts.push(`<p>${esc(t.intro)}</p>`);
+    if (t.intro) parts.push(`<p>${linkMentions(esc(t.intro), htmlLink)}</p>`);
     if (t.rows.length === 0) {
       parts.push(`<p class="empty">${esc(t.empty)}</p>`);
       continue;
     }
     const head = t.head.map((h, i) => `<th${t.right[i] ? ' class="n"' : ""}>${esc(h)}</th>`).join("");
-    const body = t.rows.map((r) => `<tr>${r.map((c, i) => `<td${t.right[i] ? ' class="n"' : i === 0 ? ' class="p"' : ""}>${esc(c)}</td>`).join("")}</tr>`).join("\n");
+    const body = t.rows.map((r) => `<tr>${r.map((c, i) => `<td${t.right[i] ? ' class="n"' : i === 0 ? ' class="p"' : ""}>${PROSE_COLUMNS.has(t.head[i]) ? linkMentions(esc(c), htmlLink) : esc(c)}</td>`).join("")}</tr>`).join("\n");
     parts.push(`<table><thead><tr>${head}</tr></thead><tbody>\n${body}\n</tbody></table>`);
   }
   return `<!doctype html>
@@ -137,11 +151,13 @@ h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:28px 0 8px}p{margin:4p
 table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
 th{background:var(--head);font-weight:600}.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.p{word-break:break-all;font-family:Consolas,monospace;font-size:12px}
 .empty{font-style:italic}
+a{color:#0a5fb4;text-underline-offset:2px}a:hover{color:#084f96}a:focus-visible{outline:2px solid currentColor;outline-offset:2px;border-radius:2px}
+@media (prefers-color-scheme:dark){a{color:#62a4f0}a:hover{color:#7db4f3}}
 </style></head><body>
-<h1>DiskDelta report</h1>
+<h1>${htmlLink("DiskDelta", PRODUCT_URL)} report</h1>
 <p>Generated ${esc(d.generatedAt.slice(0, 16).replace("T", " "))} UTC${d.mode === "demo" ? " from DEMO data (a fictional PC)" : ""}. Window: last ${d.days} days. Read-only: nothing was changed.</p>
 ${parts.join("\n")}
-<p>Made with DiskDelta by Northkeel Labs (https://northkeellabs.com/diskdelta).</p>
+<p>${linkMentions("Made with DiskDelta by Northkeel Labs (https://northkeellabs.com/diskdelta).", htmlLink)}</p>
 </body></html>
 `;
 }

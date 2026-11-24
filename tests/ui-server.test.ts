@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createCore, VERSION } from "../src/app.ts";
 import { DEMO_ENV } from "../src/scanner/demo.ts";
 import { startUiServer, type UiServer } from "../src/ui/server.ts";
+import { expectOnlyAllowedLinks } from "./links.ts";
 
 let ui: UiServer;
 const TOKEN = "test-token-0123456789abcdefghijkl";
@@ -85,7 +86,10 @@ describe("local server security", () => {
     expect(csp).toContain("connect-src 'self'");
     expect(csp).toMatch(/script-src 'nonce-[A-Za-z0-9+/=]+'/);
     expect(r.body).not.toContain("__NONCE__");
-    expect(r.body).not.toMatch(/(src|href)=["']https?:/i);
+    expectOnlyAllowedLinks(r.body);
+    // links are navigation: the policy must not restrict it (no navigate-to), and form-action only governs forms
+    expect(csp).not.toContain("navigate-to");
+    expect(r.body.match(/<a class="ext" href="https:[^"]*" target="_blank" rel="noopener noreferrer">/g)?.length).toBeGreaterThanOrEqual(4);
     expect(r.headers["x-frame-options"]).toBe("DENY");
   });
 

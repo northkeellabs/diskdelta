@@ -11,7 +11,7 @@ body:
     attributes:
       label: DiskDelta version
       description: Output of `diskdelta --version`.
-      placeholder: 0.1.2
+      placeholder: 0.1.3
     validations:
       required: true
   - type: dropdown

@@ -189,12 +189,22 @@ describe("Core API on the demo PC", () => {
 
   it("report renders Markdown and HTML; export writes a new file and never overwrites", async () => {
     const md = await core.report("md", { days: 30 });
-    expect(md).toContain("# DiskDelta report");
+    expect(md).toContain("# [DiskDelta](https://github.com/northkeellabs/diskdelta) report");
+    expect(md).toContain("Made with [DiskDelta](https://github.com/northkeellabs/diskdelta) by [Northkeel Labs](https://northkeellabs.com) ([https://northkeellabs.com/diskdelta](https://northkeellabs.com/diskdelta)).");
+    // no mention is left as plain text: strip every link, then no name remains outside the paths (backticked) and the heading
+    expect(md.replace(/\[[^\]]*\]\(https:[^)]*\)/g, "").replace(/`[^`]*`/g, "")).not.toMatch(/DiskDelta|Northkeel Labs|northkeellabs\.com/);
     expect(md).toContain("DEMO data");
     expect(md).toContain("Changed recently, growth amount unknown");
     const html = await core.report("html");
     expect(html).toMatch(/^<!doctype html>/);
-    expect(html).not.toMatch(/https?:\/\/(?!northkeellabs\.com)/);
+    expect(html).not.toMatch(/https?:\/\/(?!northkeellabs\.com|github\.com\/northkeellabs\/diskdelta)/);
+    const A = ' target="_blank" rel="noopener noreferrer"';
+    expect(html).toContain(`<h1><a href="https://github.com/northkeellabs/diskdelta"${A}>DiskDelta</a> report</h1>`);
+    expect(html).toContain(`<p>Made with <a href="https://github.com/northkeellabs/diskdelta"${A}>DiskDelta</a> by <a href="https://northkeellabs.com"${A}>Northkeel Labs</a> (<a href="https://northkeellabs.com/diskdelta"${A}>https://northkeellabs.com/diskdelta</a>).</p>`);
+    expect(html).toContain("<title>DiskDelta report</title>"); // the page title cannot hold a link
+    // outside the <title>, every mention sits inside an <a>
+    const bare = html.replace("<title>DiskDelta report</title>", "").replace(/<a [^>]*>[^<]*<\/a>/g, "");
+    expect(bare).not.toMatch(/DiskDelta|Northkeel Labs|northkeellabs\.com/);
     const dir = tempDir("export");
     cleanup.push(dir);
     const target = join(dir, "r.md");

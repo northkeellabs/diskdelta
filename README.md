@@ -16,7 +16,7 @@ DiskDelta is a free, open-source Windows tool that answers that question for you
 
 - **Drives:** a card per drive with a fullness ring, used and free space, and a Scan button; "Scan all local drives" scans every internal and USB drive. Network and cloud drives are listed but not scanned unless you pick them.
 - **Overview after a scan:** one sentence with the headline number (new files only, for example "C:\ grew 75.4 GB in the last 30 days"), the three places that grew most with their label and the way to reclaim them, a bar chart of new files per day (select a day to see which folders it went to), and a sunburst of what takes the space that you can click through. Every chart has a table view and works with the keyboard.
-- **Recent growth:** everything created in the last 7, 30, 90 or any number of days, totalled per folder and drillable down to files. Older files that were modified recently are a separate figure, "changed, growth amount unknown", because file dates cannot tell how much they grew; the two are never added together.
+- **Recent growth:** everything created in the last 1, 7, 30, 90 or any number of days, totalled per folder and drillable down to files. Older files that were modified recently are a separate figure, "changed, growth amount unknown", because file dates cannot tell how much they grew; the two are never added together.
 - **Details:** below the overview, expandable sections keep the full sortable tables: all growth places, changed older files, size by folder with a treemap, cleanup candidates and skipped folders.
 - **Labels:** each known folder gets **Safe to remove**, **Check first** or **Do not touch**, a one-line "what this is" and "how to reclaim", preferring the owning app's own command (for example `ollama rm <name>`, `docker system prune`, `npm cache clean --force`). Folders without a rule show as **Unknown, check first**, with a hint about which app owns them.
 - **Cleanup plan:** a ranked list of candidates. DiskDelta proposes; you decide and act.
@@ -29,7 +29,7 @@ DiskDelta is a free, open-source Windows tool that answers that question for you
 
 **Portable exe (no install, no admin):** download `diskdelta-<version>-win-x64.exe` from the [releases page](https://github.com/northkeellabs/diskdelta/releases), check it against `SHA256SUMS.txt`, and double-click it. It opens the page in your default browser on `http://127.0.0.1` and stops when you close the page.
 
-The exe is not code-signed yet, so Windows SmartScreen may warn you the first time ("Windows protected your PC"). Check the SHA-256 checksum first (`Get-FileHash .\diskdelta-0.1.2-win-x64.exe`), then choose "More info", "Run anyway".
+The exe is not code-signed yet, so Windows SmartScreen may warn you the first time ("Windows protected your PC"). Check the SHA-256 checksum first (`Get-FileHash .\diskdelta-0.1.3-win-x64.exe`), then choose "More info", "Run anyway".
 
 **With Node.js 22 or newer:** nothing to download first, `npx` fetches the package from npm and runs it.
 

@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { expectOnlyAllowedLinks } from "./links.ts";
 
 function files(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? (e.name === "generated" ? [] : files(join(dir, e.name))) : e.name.endsWith(".ts") ? [join(dir, e.name)] : []));
@@ -25,11 +26,7 @@ describe("offline", () => {
 
   it("the page loads no external scripts, styles, fonts or images and only talks to its own server", () => {
     const page = fs.readFileSync("src/ui/page.html", "utf8");
-    expect(page).not.toMatch(/(src|href)\s*=\s*["']?(https?:)?\/\//i);
-    expect(page).not.toMatch(/@import|url\(\s*["']?https?:/i);
-    const urls = page.match(/https?:\/\/[^\s"'<>)]+/g) ?? [];
-    // the SVG namespace is an identifier for createElementNS, not an address that is fetched
-    for (const u of urls) expect(u).toMatch(/^(https:\/\/northkeellabs\.com|http:\/\/www\.w3\.org\/2000\/svg$)/);
+    expectOnlyAllowedLinks(page);
     expect(page).not.toMatch(/\bfetch\(\s*["'`]https?:/);
   });
 
@@ -37,7 +34,7 @@ describe("offline", () => {
     if (!fs.existsSync("docs/demo/index.html")) return; // built by npm run build:demo
     const page = fs.readFileSync("docs/demo/index.html", "utf8");
     expect(page).toContain("connect-src 'none'");
-    expect(page).not.toMatch(/(src|href)\s*=\s*["']?(https?:)?\/\//i);
+    expectOnlyAllowedLinks(page, true);
     expect(page).toContain("DISKDELTA_STATIC");
     expect(page).not.toMatch(/\bfetch\(\s*["'`]https?:/);
   });
